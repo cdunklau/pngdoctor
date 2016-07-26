@@ -29,13 +29,13 @@ class PNGLexer(object):
     def iter_chunks(self):
         ihdr = None
         for code, data in self.iter_chunk_type_and_data():
-            chunkcls = models.chunk_registry.get(code, models.PNGUnknownChunk)
+            chunkcls = models.chunk_registry.get(code, models.UnknownPNGChunk)
             if ihdr is None:
-                assert chunkcls is models.PNGImageHeaderChunk
+                assert chunkcls is models.ImageHeaderPNGChunk
                 chunk = ihdr = chunkcls(data, None)
             else:
                 chunk = chunkcls(data, ihdr)
-            if chunkcls is models.PNGUnknownChunk:
+            if chunkcls is models.UnknownPNGChunk:
                 chunk.chunk_type = models.PNGChunkType(code)
             chunk.parse()
             yield chunk

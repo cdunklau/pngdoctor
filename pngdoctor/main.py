@@ -2,13 +2,13 @@ import sys
 import logging
 
 from pngdoctor.decoder import PNGLexer
-from pngdoctor.models import PNGUnknownChunk
+from pngdoctor.models import UnknownPNGChunk
 
 logger = logging.getLogger(__name__)
 
 
 def log_details(chunk):
-    if isinstance(chunk, PNGUnknownChunk):
+    if isinstance(chunk, UnknownPNGChunk):
         log = logger.warning
         fmt = "Got unknown chunk with code {code!r}, {length} bytes: {obj!r}"
     else:

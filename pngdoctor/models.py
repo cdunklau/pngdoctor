@@ -364,7 +364,7 @@ class PNGImageTextualData(AbstractPNGChunk):
         keyword, text = components
         if not 0 < len(keyword) < 80:
             raise PNGSyntaxError("Invalid length for tEXt keyword.")
-        if keyword.startswith(b' ') or keyword.endswidth(b' '):
+        if keyword.startswith(b' ') or keyword.endswith(b' '):
             raise PNGSyntaxError(
                 "Forbidden leading or trailing space found in tEXt keyword."
             )
