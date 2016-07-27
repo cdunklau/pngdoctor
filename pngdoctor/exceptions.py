@@ -2,6 +2,10 @@ class DecodeError(Exception):
     pass
 
 
+class StreamStateError(DecodeError):
+    pass
+
+
 class UnexpectedEOF(DecodeError):
     pass
 
