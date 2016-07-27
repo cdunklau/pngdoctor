@@ -57,6 +57,19 @@ class PNGChunkStream(object):
         Yield full or partial chunks.
         """
         self._validate_signature()
+        while True:
+            yield self._get_chunk_head()
+            while self.chunk_state.next_read > 0:
+                yield self._get_chunk_data()
+            end = self._get_chunk_end()
+            yield end
+            if end.head.code == b'IEND':
+                break
+
+        if self._stream.read(1):
+            raise exceptions.PNGSyntaxError(
+                "Data exists beyond IEND chunk end"
+            )
 
     def _validate_signature(self):
         header = self._read(len(PNG_SIGNATURE))
@@ -92,6 +105,12 @@ class PNGChunkStream(object):
                 max=PNG_MAX_CHUNK_LENGTH
             ))
         type_code = self._read(4)
+        if not models.PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(type_code):
+            raise exceptions.PNGSyntaxError(
+                "Invalid type code for chunk at byte {position}".format(
+                    self.start_position,
+                )
+            )
         head = models.PNGChunkHead(length, type_code, position)
         self.chunk_state = PNGStreamChunkState(head)
         return head
@@ -127,9 +146,9 @@ class PNGChunkStream(object):
         
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self.chunk_state.crc32
-        val = PNGChunkEnd(self.chunk_state.head, crc32okay)
+        rval = PNGChunkEnd(self.chunk_state.head, crc32okay)
         self.chunk_head = None
-        return val
+        return rval
 
     def _read(self, length):
         """
@@ -184,7 +203,7 @@ class PNGStreamChunkState(object):
     def __init__(self, head):
         self.head = head
         self.data_remaining = self.head.length
-        self.crc32 = 0
+        self.crc32 = zlib.crc32(self.head.code)
         self._update_next_read()
 
     def update(self, data):
