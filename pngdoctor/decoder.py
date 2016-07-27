@@ -111,7 +111,7 @@ class PNGChunkStream(object):
                     self.start_position,
                 )
             )
-        head = models.PNGChunkHead(length, type_code, position)
+        head = models.PNGChunkHead(length, type_code, start_position)
         self.chunk_state = PNGStreamChunkState(head)
         return head
 
@@ -146,8 +146,8 @@ class PNGChunkStream(object):
         
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self.chunk_state.crc32
-        rval = PNGChunkEnd(self.chunk_state.head, crc32okay)
-        self.chunk_head = None
+        rval = models.PNGChunkEnd(self.chunk_state.head, crc32okay)
+        self.chunk_state = None
         return rval
 
     def _read(self, length):
