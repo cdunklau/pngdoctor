@@ -19,6 +19,75 @@ PNG_SIGNATURE = bytes([
 ])
 PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for most reasonable PNGs
 PNG_MAX_CHUNK_LENGTH = 2**31 - 1
+PNG_CHUNK_MAX_DATA_READ = 4 * 2**10  # 4 KiB max chunk data processed
+
+
+class PNGChunkDataStream(object):
+    """
+    Produces chunks and partial chunks for processing in the higher
+    levels of the decoder.
+
+    Responsible for parsing and validating low-level portions of a
+    PNG stream, including:
+
+    -   Signature (PNG magic number)
+    -   Valid chunk length declaration
+    -   Valid chunk code
+    -   CRC32 checksum
+    -   Proper ordering of chunks: IHDR first, contiguous IDAT,
+        terminal IEND, etc
+
+    :ivar chunk_state: The state of the current chunk's processing
+    :type chunk_state: :class:`PNGChunkState`
+    """
+
+    total_bytes_read = None
+    "Total number of bytes consumed from the underlying file object"
+
+    chunk_data_bytes_read = None
+    "Number of bytes consumed during processing of the current chunk"
+
+
+
+class PNGChunkState(object):
+    """
+    Represents the state of processing of a single chunk.
+
+    No attribute may be modified externally.
+
+    :ivar data_length: The total length in bytes of the chunk's data
+    :type data_length: int
+    :ivar code: The PNG chunk code
+    :type code: bytes
+    :ivar data_remaining:
+        The number of chunk data bytes not yet processed
+    :type data_remaining: int
+    :ivar crc32: The running crc32 checksum
+    :type crc32: int
+    :ivar next_read:
+        The number of bytes for the PNGChunkDataStream to provide to
+        the next call of instance's `update` method.
+    :type next_read: int
+
+    """
+    def __init__(self, length, code):
+        self.data_length = self.data_remaining = length
+        self.code = code
+        self.crc32 = 0
+        self._update_next_read()
+
+    def update(self, data):
+        """
+        Update the state with the provided data, which must be
+        :attr:`next_read` bytes long.
+        """
+        assert self.data_remaining >= len(data) == self.next_read
+        self.data_remaining -= self.next_read
+        self._update_next_read()
+        self.crc32 = zlib.crc32(data, self.crc32)
+
+    def _update_next_read(self):
+        self.next_read = min(PNG_CHUNK_MAX_DATA_READ, self.data_remaining)
 
 
 class PNGLexer(object):
