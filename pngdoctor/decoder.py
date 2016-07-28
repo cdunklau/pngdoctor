@@ -1,5 +1,6 @@
 import struct
 import zlib
+from collections import namedtuple
 
 from pngdoctor import exceptions
 from pngdoctor import models
@@ -18,14 +19,14 @@ PNG_SIGNATURE = bytes([
     0x0A
 ])
 PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for most reasonable PNGs
-PNG_MAX_CHUNK_LENGTH = 2**31 - 1
+PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
 PNG_CHUNK_MAX_DATA_READ = 4 * 2**10  # 4 KiB max chunk data processed
 
 
-class PNGChunkStream(object):
+class PNGChunkTokenStream(object):
     """
-    Produces chunks and partial chunks for processing in the higher
-    levels of the decoder.
+    Produces chunk tokens for processing in the higher levels of the
+    decoder.
 
     Responsible for parsing and validating low-level portions of a
     PNG stream, including:
@@ -34,42 +35,42 @@ class PNGChunkStream(object):
     -   Valid chunk length declaration
     -   Valid chunk code
     -   CRC32 checksum
-    -   Proper ordering of chunks: IHDR first, contiguous IDAT,
-        terminal IEND (this should go higher up)
 
     :ivar chunk_state: The state of the current chunk's processing
-    :type chunk_state: :class:`PNGStreamChunkState`
+    :type chunk_state: :class:`PNGSingleChunkState`
     :ivar total_bytes_read:
         Total number of bytes consumed from the underlying file object
     :type total_bytes_read: int
     """
-
-
     def __init__(self, stream):
         self._stream = stream
         self.total_bytes_read = 0
         self.chunk_state = None
 
-    def iter_chunks(self):
+    def __iter__(self):
         """
-        Process the file.
+        Process the stream and produce chunk tokens.
 
-        Yield full or partial chunks.
+        Yields in order one :class:`PNGChunkHeadToken` instance,
+        zero or more :class:`PNGChunkDataPartToken` instances, then
+        one :class:`PNGChunkEndToken` instance, then repeats for the
+        next chunk.
+
         """
         self._validate_signature()
         while True:
-            yield self._get_chunk_head()
+            # First read a single byte to detect EOF
+            try:
+                initial = self._read(1)
+            except exceptions.UnexpectedEOF:
+                # If EOF happens here, there is no chunk being processed,
+                # so the generator stops
+                return
+            yield self._get_chunk_head(initial)
             while self.chunk_state.next_read > 0:
                 yield self._get_chunk_data()
             end = self._get_chunk_end()
             yield end
-            if end.head.code == b'IEND':
-                break
-
-        if self._stream.read(1):
-            raise exceptions.PNGSyntaxError(
-                "Data exists beyond IEND chunk end"
-            )
 
     def _validate_signature(self):
         header = self._read(len(PNG_SIGNATURE))
@@ -81,10 +82,13 @@ class PNGChunkStream(object):
                 )
             )
 
-    def _get_chunk_head(self):
+    def _get_chunk_head(self, prepend_byte):
         """
         Interpret the next 8 bytes in the stream as a chunk's
         length and code, validate them, and reset the state.
+
+        :param prepend_byte: The first byte of the chunk length field
+        :type prepend_byte: bytes
 
         :return: The chunk length, type code, and starting position
         :rtype: tuple of (int, bytes, int)
@@ -93,8 +97,10 @@ class PNGChunkStream(object):
             raise exceptions.StreamStateError(
                 "Must finish last chunk before starting another"
             )
-        start_position = self.total_bytes_read + 1
-        [length] = struct.unpack('>I', self._read(4))
+        # One byte has already been read by this chunk, so don't add
+        # another to the count.
+        start_position = self.total_bytes_read
+        [length] = struct.unpack('>I', prepend_byte + self._read(3))
         if length > PNG_MAX_CHUNK_LENGTH:
             fmt = (
                 "Chunk claims to be {actual} bytes long, must be "
@@ -111,8 +117,8 @@ class PNGChunkStream(object):
                     self.start_position,
                 )
             )
-        head = models.PNGChunkHead(length, type_code, start_position)
-        self.chunk_state = PNGStreamChunkState(head)
+        head = PNGChunkHeadToken(length, type_code, start_position)
+        self.chunk_state = PNGSingleChunkState(head)
         return head
 
     def _get_chunk_data(self):
@@ -121,7 +127,7 @@ class PNGChunkStream(object):
         amount from :attr:`chunk_state`, update the chunk state, and
         return the chunk data part.
 
-        :rtype: :class:`models.PNGChunkDataPart`
+        :rtype: :class:`PNGChunkDataPartToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read == 0:
             raise exceptions.StreamStateError(
@@ -129,7 +135,7 @@ class PNGChunkStream(object):
             )
         data = self._read(self.chunk_state.next_read)
         self.chunk_state.update(data)
-        return models.PNGChunkDataPart(self.chunk_state.head, data)
+        return PNGChunkDataPartToken(self.chunk_state.head, data)
 
     def _get_chunk_end(self):
         """
@@ -137,7 +143,7 @@ class PNGChunkStream(object):
         CRC32 checksum, check if it matches the calculated checksum,
         and wipe the state.
 
-        :rtype: :class:`models.PNGChunkEnd`
+        :rtype: :class:`PNGChunkEndToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read != 0:
             raise exceptions.StreamStateError(
@@ -146,7 +152,7 @@ class PNGChunkStream(object):
         
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self.chunk_state.crc32
-        rval = models.PNGChunkEnd(self.chunk_state.head, crc32okay)
+        rval = PNGChunkEndToken(self.chunk_state.head, crc32okay)
         self.chunk_state = None
         return rval
 
@@ -164,8 +170,8 @@ class PNGChunkStream(object):
                     size=PNG_MAX_FILE_SIZE,
                 )
             )
-        read = self._stream.read(length)
-        actual = len(read)
+        data = self._stream.read(length)
+        actual = len(data)
         self.total_bytes_read += actual
         assert length >= actual, "Read more bytes than requested"
         if length > actual:
@@ -175,11 +181,43 @@ class PNGChunkStream(object):
                     actual=actual,
                     total=self.total_bytes_read
             ))
-        return read
+        return data
 
 
+class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
+    """
+    The start of a PNG chunk.
 
-class PNGStreamChunkState(object):
+    :ivar length: The number of bytes comprising the chunk's data
+    :type length: int
+    :ivar code: The PNG chunk type code
+    :type code: bytes
+    :ivar position: Where the chunk started in the stream
+    :type position: int
+    """
+
+class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
+    """
+    A portion (or all) of the data from a PNG chunk.
+
+    :ivar head: The head token from this chunk
+    :type head: :class:`PNGChunkHeadToken`
+    :ivar data: The bytes from this portion of the chunk
+    :type data: bytes
+    """
+
+class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
+    """
+    The end marker for a PNG chunk.
+
+    :ivar head: The head token from this chunk
+    :type head: :class:`PNGChunkHeadToken`
+    :ivar crc32ok: If the CRC32 checksum validated properly
+    :type crc32ok: bool
+    """
+
+
+class PNGSingleChunkState(object):
     """
     Represents the state of processing of a single chunk.
 
@@ -188,7 +226,7 @@ class PNGStreamChunkState(object):
     :ivar head:
         The chunk's header: total length of the chunk data, type code,
         and the position in the stream where the chunk started
-    :type head: :class:`models.PNGChunkHead`
+    :type head: :class:`PNGChunkHeadToken`
     :ivar data_remaining:
         The number of chunk data bytes not yet processed
     :type data_remaining: int
@@ -224,6 +262,49 @@ class PNGStreamChunkState(object):
 
     def _update_next_read(self):
         self.next_read = min(PNG_CHUNK_MAX_DATA_READ, self.data_remaining)
+
+
+# From PNG 1.2 specification:
+#
+# This table summarizes some properties of the standard chunk types.
+#
+# Critical chunks (must appear in this order, except PLTE
+#                  is optional):
+#
+#         Name  Multiple  Ordering constraints
+#                 OK?
+#
+#         IHDR    No      Must be first
+#         PLTE    No      Before IDAT
+#         IDAT    Yes     Multiple IDATs must be consecutive
+#         IEND    No      Must be last
+#
+# Ancillary chunks (need not appear in this order):
+#
+#         Name  Multiple  Ordering constraints
+#                 OK?
+#
+#         cHRM    No      Before PLTE and IDAT
+#         gAMA    No      Before PLTE and IDAT
+#         iCCP    No      Before PLTE and IDAT
+#         sBIT    No      Before PLTE and IDAT
+#         sRGB    No      Before PLTE and IDAT
+#         bKGD    No      After PLTE; before IDAT
+#         hIST    No      After PLTE; before IDAT
+#         tRNS    No      After PLTE; before IDAT
+#         pHYs    No      Before IDAT
+#         sPLT    Yes     Before IDAT
+#         tIME    No      None
+#         iTXt    Yes     None
+#         tEXt    Yes     None
+#         zTXt    Yes     None
+class PNGChunkSequenceValidator(object):
+    """
+    Tracks the chunks seen and validates their order, presence, and
+    dependencies.
+    """
+    def __init__(self, chunk_stream):
+        pass
 
 
 class PNGLexer(object):

@@ -2,28 +2,8 @@ import abc
 import enum
 import itertools
 import struct
-import collections
 
 from pngdoctor.exceptions import PNGSyntaxError
-
-
-class PNGFile(object):
-    pass
-
-
-PNGChunkHead = collections.namedtuple(
-    'PNGChunkHead',
-    ['length', 'code', 'position']
-)
-PNGChunkDataPart = collections.namedtuple(
-    'PNGChunkDataPart',
-    ['head', 'data']
-)
-PNGChunkEnd = collections.namedtuple(
-    'PNGChunkEnd',
-    ['head', 'crc32ok']
-)
-
 
 
 PNG_CHUNK_TYPE_PROPERTY_BITMASK = 0b00100000

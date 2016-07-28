@@ -1,7 +1,7 @@
 import sys
 import logging
 
-from pngdoctor.decoder import PNGLexer, PNGChunkStream
+from pngdoctor.decoder import PNGLexer, PNGChunkTokenStream
 from pngdoctor.models import UnknownPNGChunk
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,8 @@ def log_chunks(pngfile):
 
 
 def log_chunk_tokens(pngfile):
-    lex = PNGChunkStream(pngfile)
-    for token in lex.iter_chunks():
+    tokenizer = PNGChunkTokenStream(pngfile)
+    for token in tokenizer:
         logger.info(repr(token))
 
 
