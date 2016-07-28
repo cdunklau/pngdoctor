@@ -298,13 +298,28 @@ class PNGSingleChunkState(object):
 #         iTXt    Yes     None
 #         tEXt    Yes     None
 #         zTXt    Yes     None
+
+
+
 class PNGChunkSequenceValidator(object):
     """
     Tracks the chunks seen and validates their order, presence, and
     dependencies.
     """
-    def __init__(self, chunk_stream):
-        pass
+    def __init__(self, chunk_token_stream):
+        self.tokens = chunk_token_stream
+        self.image_header_seen = False
+        self.palette_seen = False
+        self.image_data_seen = False
+        # TODO: needs more attributes
+
+    def __iter__(self):
+        """
+        Loop over the chunk tokens and validate the head tokens, and
+        yield them.
+        """
+        for chunk in self.tokens:
+            assert False, "this isn't done yet"
 
 
 class PNGLexer(object):

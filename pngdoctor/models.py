@@ -2,6 +2,7 @@ import abc
 import enum
 import itertools
 import struct
+from collections import namedtuple
 
 from pngdoctor.exceptions import PNGSyntaxError
 
@@ -11,15 +12,15 @@ PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES = frozenset(
     itertools.chain(range(65, 91), range(97, 123)))
 
 
-class PNGChunkType(object):
-    def __init__(self, code):
+class PNGChunkType(namedtuple('_ChunkType', ['code'])):
+    def __new__(cls, code):
         if not isinstance(code, bytes):
             raise TypeError("Argument 'code' must be bytes")
         if len(code) != 4:
             raise ValueError("'code' must be exactly 4 bytes long")
         if not PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(code):
             raise ValueError("'code' contains invalid bytes")
-        self.code = code
+        return super(PNGChunkType, cls).__new__(cls, code)
 
     @property
     def ancillary(self):
@@ -36,6 +37,59 @@ class PNGChunkType(object):
     @property
     def safe_to_copy(self):
         return bool(self.code[3] & PNG_CHUNK_TYPE_PROPERTY_BITMASK)
+
+
+# Standard PNG chunk names and type codes
+# Names are taken from the headers of the PNG 1.2 spec in section 4.
+
+## Critical chunks
+IMAGE_HEADER = PNGChunkType(b'IHDR')
+PALETTE = PNGChunkType(b'PLTE')
+IMAGE_DATA = PNGChunkType(b'IDAT')
+IMAGE_TRAILER = PNGChunkType(b'IEND')
+
+## Ancillary chunks
+TRANSPARENCY = PNGChunkType(b'tRNS')
+# Color space information
+IMAGE_GAMMA = PNGChunkType(b'gAMA')
+PRIMARY_CHROMATICITIES = PNGChunkType(b'cHRM')
+STANDARD_RGB_COLOR_SPACE = PNGChunkType(b'sRGB')
+EMBEDDED_ICC_PROFILE = PNGChunkType(b'iCCP')
+
+# Textual information
+TEXTUAL_DATA = PNGChunkType(b'tEXt')
+COMPRESSED_TEXTUAL_DATA = PNGChunkType(b'zTXt')
+INTERNATIONAL_TEXTUAL_DATA = PNGChunkType(b'iTXt')
+
+# Miscellaneous information
+BACKGROUND_COLOR = PNGChunkType(b'bKGD')
+PHYSICAL_PIXEL_DIMENSIONS = PNGChunkType(b'pHYs')
+SIGNIFICANT_BITS = PNGChunkType(b'sBIT')
+SUGGESTED_PALETTE = PNGChunkType(b'sPLT')
+PALETTE_HISTOGRAM = PNGChunkType(b'hIST')
+IMAGE_LAST_MODIFICATION_TIME = PNGChunkType(b'tIME')
+
+# Map of chunk type codes (bytes) to their PNGChunkType instances
+CODE_TYPES = {
+    IMAGE_HEADER.code: IMAGE_HEADER,
+    PALETTE.code: PALETTE,
+    IMAGE_DATA.code: IMAGE_DATA,
+    IMAGE_TRAILER.code: IMAGE_TRAILER,
+    TRANSPARENCY.code: TRANSPARENCY,
+    IMAGE_GAMMA.code: IMAGE_GAMMA,
+    PRIMARY_CHROMATICITIES.code: PRIMARY_CHROMATICITIES,
+    STANDARD_RGB_COLOR_SPACE.code: STANDARD_RGB_COLOR_SPACE,
+    EMBEDDED_ICC_PROFILE.code: EMBEDDED_ICC_PROFILE,
+    TEXTUAL_DATA.code: TEXTUAL_DATA,
+    COMPRESSED_TEXTUAL_DATA.code: COMPRESSED_TEXTUAL_DATA,
+    INTERNATIONAL_TEXTUAL_DATA.code: INTERNATIONAL_TEXTUAL_DATA,
+    BACKGROUND_COLOR.code: BACKGROUND_COLOR,
+    PHYSICAL_PIXEL_DIMENSIONS.code: PHYSICAL_PIXEL_DIMENSIONS,
+    SIGNIFICANT_BITS.code: SIGNIFICANT_BITS,
+    SUGGESTED_PALETTE.code: SUGGESTED_PALETTE,
+    PALETTE_HISTOGRAM.code: PALETTE_HISTOGRAM,
+    IMAGE_LAST_MODIFICATION_TIME.code: IMAGE_LAST_MODIFICATION_TIME,
+}
 
 
 
