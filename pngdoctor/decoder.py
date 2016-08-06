@@ -3,7 +3,7 @@ import struct
 import zlib
 from collections import namedtuple, Counter
 
-from pngdoctor import exceptions
+from pngdoctor import exceptions as exc
 from pngdoctor import models
 
 
@@ -65,10 +65,11 @@ class PNGChunkTokenStream(object):
             # First read a single byte to detect EOF
             try:
                 initial = self._read(1)
-            except exceptions.UnexpectedEOF:
-                # If EOF happens here, there is no chunk being processed,
-                # so the generator stops
-                return
+            except exc.UnexpectedEOF:
+                # If EOF happens here, the stream ended properly at the end
+                # of the last chunk so we break...
+                break
+
             head = self._get_chunk_head(initial)
             self.order_validator.validate(head)
             yield head
@@ -77,10 +78,13 @@ class PNGChunkTokenStream(object):
             end = self._get_chunk_end()
             yield end
 
+        # ...and ensure the last chunk was the IEND.
+        self.order_validator.validate_end()
+
     def _validate_signature(self):
         header = self._read(len(PNG_SIGNATURE))
         if header != PNG_SIGNATURE:
-            raise exceptions.SignatureMismatch(
+            raise exc.SignatureMismatch(
                 "Expected {expected!r}, got {actual!r}".format(
                     expected=PNG_SIGNATURE,
                     actual=header
@@ -99,7 +103,7 @@ class PNGChunkTokenStream(object):
         :rtype: tuple of (int, bytes, int)
         """
         if self.chunk_state is not None:
-            raise exceptions.StreamStateError(
+            raise exc.StreamStateError(
                 "Must finish last chunk before starting another"
             )
         # One byte has already been read by this chunk, so don't add
@@ -111,13 +115,13 @@ class PNGChunkTokenStream(object):
                 "Chunk claims to be {actual} bytes long, must be "
                 "no longer than {max}."
             )
-            raise exceptions.PNGSyntaxError(fmt.format(
+            raise exc.PNGSyntaxError(fmt.format(
                 actual=length,
                 max=PNG_MAX_CHUNK_LENGTH
             ))
         type_code = self._read(4)
         if not models.PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(type_code):
-            raise exceptions.PNGSyntaxError(
+            raise exc.PNGSyntaxError(
                 "Invalid type code for chunk at byte {position}".format(
                     self.start_position,
                 )
@@ -135,7 +139,7 @@ class PNGChunkTokenStream(object):
         :rtype: :class:`PNGChunkDataPartToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read == 0:
-            raise exceptions.StreamStateError(
+            raise exc.StreamStateError(
                 "Incorrect chunk state for reading data"
             )
         data = self._read(self.chunk_state.next_read)
@@ -151,7 +155,7 @@ class PNGChunkTokenStream(object):
         :rtype: :class:`PNGChunkEndToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read != 0:
-            raise exceptions.StreamStateError(
+            raise exc.StreamStateError(
                 "Incorrect chunk state for ending data"
             )
         
@@ -170,7 +174,7 @@ class PNGChunkTokenStream(object):
         :exc:`exceptions.UnexpectedEOF`.
         """
         if length + self.total_bytes_read > PNG_MAX_FILE_SIZE:
-            raise exceptions.PNGTooLarge(
+            raise exc.PNGTooLarge(
                 "Attempted to read past file size limit: {size} bytes".format(
                     size=PNG_MAX_FILE_SIZE,
                 )
@@ -181,7 +185,7 @@ class PNGChunkTokenStream(object):
         assert length >= actual, "Read more bytes than requested"
         if length > actual:
             fmt = "Expected to read {length}, got {actual}, total read {total}"
-            raise exceptions.UnexpectedEOF(fmt.format(
+            raise exc.UnexpectedEOF(fmt.format(
                     length=length,
                     actual=actual,
                     total=self.total_bytes_read
@@ -201,6 +205,7 @@ class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
     :type position: int
     """
 
+
 class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
     """
     A portion (or all) of the data from a PNG chunk.
@@ -210,6 +215,7 @@ class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
     :ivar data: The bytes from this portion of the chunk
     :type data: bytes
     """
+
 
 class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
     """
@@ -269,41 +275,6 @@ class PNGSingleChunkState(object):
         self.next_read = min(PNG_CHUNK_MAX_DATA_READ, self.data_remaining)
 
 
-# From PNG 1.2 specification:
-#
-# This table summarizes some properties of the standard chunk types.
-#
-# Critical chunks (must appear in this order, except PLTE
-#                  is optional):
-#
-#         Name  Multiple  Ordering constraints
-#                 OK?
-#
-#         IHDR    No      Must be first
-#         PLTE    No      Before IDAT
-#         IDAT    Yes     Multiple IDATs must be consecutive
-#         IEND    No      Must be last
-#
-# Ancillary chunks (need not appear in this order):
-#
-#         Name  Multiple  Ordering constraints
-#                 OK?
-#
-#         cHRM    No      Before PLTE and IDAT
-#         gAMA    No      Before PLTE and IDAT
-#         iCCP    No      Before PLTE and IDAT
-#         sBIT    No      Before PLTE and IDAT
-#         sRGB    No      Before PLTE and IDAT
-#         bKGD    No      After PLTE; before IDAT
-#         hIST    No      After PLTE; before IDAT
-#         tRNS    No      After PLTE; before IDAT
-#         pHYs    No      Before IDAT
-#         sPLT    Yes     Before IDAT
-#         tIME    No      None
-#         iTXt    Yes     None
-#         tEXt    Yes     None
-#         zTXt    Yes     None
-
 
 def chunk_handler(chunk_type):
     """
@@ -331,14 +302,17 @@ def _ischunkhandler(member):
 
 
 
+# TODO: rewrite this to use the things in pngdoctor.fsm
 class PNGChunkSequenceValidator(object):
     """
     Tracks the chunks seen and validates their order, presence, and
     dependencies.
     """
     def __init__(self):
-        self.seen_chunks = Counter()
+        # PNG chunk codes currently allowed
+        self._allowed_chunk_type_codes = set([b'IHDR'])
 
+        # This probably goes away
         self._handlers = {}
         for method in inspect.getmembers(self, _ischunkhandler):
             if method.chunk_type in self._handlers:
@@ -346,13 +320,18 @@ class PNGChunkSequenceValidator(object):
                 raise TypeError(fmt.format(type=method.chunk_type))
             self._handlers[method.chunk_type] = method
 
+        # The validation routine to call
+        self._validate = self._validate_image_header
 
         self.image_header_seen = False
         self.palette_seen = False
         self.image_data_seen = False
+        self.image_trailer_seen = False
         # TODO: needs more attributes
 
     def validate(self, chunk_head_token):
+        if chunk_head_token.code not in self._allowed_chunk_type_codes:
+            raise PNGSyntaxError(
         chunk_type = models.CODE_TYPES.get(chunk_head_token.code)
         if chunk_type is None:
             fmt = 'Unknown chunk type code {code} at byte {pos}'
@@ -364,7 +343,17 @@ class PNGChunkSequenceValidator(object):
         handler_method(chunk_head_token)
         self.seen_chunks[chunk_head_token.code] += 1
 
+    def validate_end(self):
+        """
+        Called when the end of the stream is reached. Ensure that the
+        image end chunk was validated or raise an exception.
+        """
+        if not self.image_trailer_seen:
+            raise exc.PNGSyntaxError(
+                'No image trailer (IEND) chunk before stream end'
+            )
+
     @chunk_handler(models.IMAGE_HEADER)
     def _handle_image_header(self, token):
         if len(self.seen_chunks):
-            raise PNGSyntaxError('Image header must be first chunk')
+            raise exc.PNGSyntaxError('Image header must be first chunk')
