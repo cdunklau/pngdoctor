@@ -3,6 +3,7 @@ Finite state machines.
 """
 
 import collections
+import enum
 
 from pngdoctor.exceptions import PNGSyntaxError
 
@@ -62,7 +63,17 @@ class describes sequences of PNG chunk codes.
 '''
 
 
+@enum.unique
+class ChunkProcessingState(enum.Enum):
+    before_header = 0
+    before_palette = 1
+    after_palette_before_data = 2
+    during_data = 3
+    after_data = 4
+    after_trailer = 5
 
+
+# These might still be useful, so leaving them for now
 CRITICAL = frozenset({b'IHDR', b'PLTE', b'IDAT', b'IEND'})
 BEFORE_PALETTE = frozenset({b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB'})
 AFTER_PALETTE_BEFORE_DATA = frozenset({b'bKGD', b'hIST', b'tRNS'})
@@ -81,32 +92,36 @@ assert len(KNOWN_CHUNKS) == sum(map(len, _allsets))
 del _allsets
 
 
-START_STATE = object()
-DELEGATE = object()
-INVALID = object()
-VALID = object()
-COMPLETE = object()
-
-
 class ChunkGrammarParser(object):
     def __init__(self):
+        self.state = ChunkProcessingState.before_header
         self.counts = ChunkCountValidator()
-        self._critical = CriticalChunkStateMachine()
-        self._critical_delegation = {
-            b'IHDR': BeforePaletteChunkStateMachine,
-            b'PLTE': AfterPaletteBeforeDataStateMachine,
-            b'IDAT': AfterDataStateMachine,
-        }
+        # TODO: Add transitions structure.
+        #       Should be a map of state -> (
+        #           dict of allowed codes -> result state
+        #       )
 
     def validate(self, chunk_code):
-        # TODO finish this
         self.counts.check(chunk_code)
-        critical_result = self._critical.get_result(chunk_code)
-        if critical_result is DELEGATE:
-            ...
-        elif critical_result is VALID:
-            ...
+        # TODO finish this. Add transition processing.
 
+
+class ChunkCountValidator(object):
+    def __init__(self):
+        self._nseen = collections.Counter()
+        self._multiple_allowed = frozenset({
+            b'IDAT', b'sPLT', b'iTXt', b'tEXt', b'zTXt',
+        })
+
+    def check(self, chunk_code):
+        if (self._nseen[chunk_code] > 1 and
+                chunk_code not in self._multiple_allowed):
+            fmt = 'More than one {code} chunk seen, but at most one allowed'
+            raise PNGSyntaxError(fmt.format(code=chunk_code.decode('ascii')))
+        self._nseen[chunk_code] += 1
+
+
+## The stuff below is all obsolete, keeping for the moment though.
 
 class BaseStateMachine(object):
     state = START_STATE
@@ -138,21 +153,6 @@ class CriticalChunkStateMachine(BaseStateMachine):
             b'IDAT': frozenset({b'IDAT'}),
             b'IEND': frozenset(),
         }
-
-
-class ChunkCountValidator(object):
-    def __init__(self):
-        self._nseen = collections.Counter()
-        self._multiple_allowed = frozenset({
-            b'IDAT', b'sPLT', b'iTXt', b'tEXt', b'zTXt',
-        })
-
-    def check(self, chunk_code):
-        if (self._nseen[chunk_code] > 1 and
-                chunk_code not in self._multiple_allowed):
-            fmt = 'More than one {code} chunk seen, but at most one allowed'
-            raise PNGSyntaxError(fmt.format(code=chunk_code.encode('ascii')))
-        self._nseen[chunk_code] += 1
 
 
 class BeforePaletteChunkStateMachine(BaseStateMachine):
