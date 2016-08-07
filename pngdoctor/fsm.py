@@ -7,27 +7,6 @@ import collections
 from pngdoctor.exceptions import PNGSyntaxError
 
 
-START_STATE = object()
-DELEGATE = object()
-INVALID = object()
-VALID = object()
-COMPLETE = object()
-
-
-class ChunkGrammarStateMachine(object):
-    def __init__(self):
-        self._counts = ChunkCountValidator()
-        self._critical = CriticalChunkStateMachine()
-        self._critical_delegation = {
-            b'IHDR': BeforePaletteChunkStateMachine(),
-        }
-
-    def validate(self, chunk_code):
-        # TODO finish this
-        self._counts.check(chunk_code)
-        ...
-
-
 # From PNG 1.2 specification:
 #
 # This table summarizes some properties of the standard chunk types.
@@ -42,37 +21,6 @@ class ChunkGrammarStateMachine(object):
 #         PLTE    No      Before IDAT
 #         IDAT    Yes     Multiple IDATs must be consecutive
 #         IEND    No      Must be last
-#
-
-class CriticalChunkStateMachine(object):
-    def __init__(self):
-        self.state = START_STATE
-        # maps current state to 
-        self._transitions = {
-            START_STATE: frozenset({b'IHDR'}),
-            b'IHDR': frozenset({b'PLTE', b'IDAT'}),
-            b'PLTE': frozenset({b'IDAT'}),
-            b'IDAT': frozenset({b'IDAT'}),
-            b'IEND': frozenset(),
-        }
-
-    def get_result(self, chunk_code):
-        if chunk_code not in self._transitions:
-            return DELEGATE
-        available = self._transitions[self.state]
-        if chunk_code not in available:
-            return INVALID
-
-        self.state = chunk_code
-        if self._transitions[self.state]:
-            return VALID
-        else:
-            return COMPLETE
-
-
-# From PNG 1.2 specification:
-#
-# This table summarizes some properties of the standard chunk types.
 #
 # Ancillary chunks (need not appear in this order):
 #
@@ -94,6 +42,103 @@ class CriticalChunkStateMachine(object):
 #         tEXt    Yes     None
 #         zTXt    Yes     None
 
+'''
+The PNG chunk code alphabet is the set of strings comprising of exactly four
+uppercase or lowercase ASCII letters: (a-zA-Z){4}
+
+png_regular_expression =
+    "IHDR"
+    (BEFORE_PALETTE|BEFORE_DATA|ALLOWED_ANYWHERE|UNKNOWN) *
+    "PLTE" ? 
+    (AFTER_PALETTE_BEFORE_DATA|BEFORE_DATA|ALLOWED_ANYWHERE|UNKNOWN) *
+    "IDAT" +
+    (ALLOWED_ANYWHERE|UNKNOWN) *
+    "IEND"
+
+This does not handle the uniqueness constraints in the ancillary chunks.
+More research is necessary before I can figure out which formal language
+class describes sequences of PNG chunk codes.
+
+'''
+
+
+
+CRITICAL = frozenset({b'IHDR', b'PLTE', b'IDAT', b'IEND'})
+BEFORE_PALETTE = frozenset({b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB'})
+AFTER_PALETTE_BEFORE_DATA = frozenset({b'bKGD', b'hIST', b'tRNS'})
+BEFORE_DATA = frozenset({b'pHYs', b'sPLT'})
+ALLOWED_ANYWHERE = frozenset({b'tIME', b'iTXt', b'tEXt', b'zTXt'})
+_allsets = [
+    CRITICAL,
+    BEFORE_PALETTE,
+    AFTER_PALETTE_BEFORE_DATA,
+    BEFORE_DATA,
+    ALLOWED_ANYWHERE
+]
+KNOWN_CHUNKS = frozenset().union(*_allsets)
+# Ensure no repeats
+assert len(KNOWN_CHUNKS) == sum(map(len, _allsets))
+del _allsets
+
+
+START_STATE = object()
+DELEGATE = object()
+INVALID = object()
+VALID = object()
+COMPLETE = object()
+
+
+class ChunkGrammarParser(object):
+    def __init__(self):
+        self.counts = ChunkCountValidator()
+        self._critical = CriticalChunkStateMachine()
+        self._critical_delegation = {
+            b'IHDR': BeforePaletteChunkStateMachine,
+            b'PLTE': AfterPaletteBeforeDataStateMachine,
+            b'IDAT': AfterDataStateMachine,
+        }
+
+    def validate(self, chunk_code):
+        # TODO finish this
+        self.counts.check(chunk_code)
+        critical_result = self._critical.get_result(chunk_code)
+        if critical_result is DELEGATE:
+            ...
+        elif critical_result is VALID:
+            ...
+
+
+class BaseStateMachine(object):
+    state = START_STATE
+    # Maps current state to set of acceptable next states.
+    # State with empty set as next state is an accepting state.
+    _transitions = None
+
+    def get_result(self, chunk_code):
+        if chunk_code not in self._transitions:
+            return DELEGATE
+        available = self._transitions[self.state]
+        if chunk_code not in available:
+            return INVALID
+
+        self.state = chunk_code
+        if self._transitions[self.state]:
+            return VALID
+        else:
+            return COMPLETE
+
+
+
+class CriticalChunkStateMachine(BaseStateMachine):
+    def __init__(self):
+        self._transitions = {
+            START_STATE: frozenset({b'IHDR'}),
+            b'IHDR': frozenset({b'PLTE', b'IDAT'}),
+            b'PLTE': frozenset({b'IDAT'}),
+            b'IDAT': frozenset({b'IDAT'}),
+            b'IEND': frozenset(),
+        }
+
 
 class ChunkCountValidator(object):
     def __init__(self):
@@ -110,22 +155,34 @@ class ChunkCountValidator(object):
         self._nseen[chunk_code] += 1
 
 
-BEFORE_PALETTE = frozenset({b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB'})
-AFTER_PALATTE_BEFORE_DATA = frozenset({b'bKGD', b'hIST', b'tRNS'})
-BEFORE_DATA = frozenset({b'pHYs', b'sPLT'})
-ALLOWED_ANYWHERE = frozenset({b'tIME', b'iTXt', b'tEXt', b'zTXt'})
-_allsets = [
-    BEFORE_PALETTE, AFTER_PALATTE_BEFORE_DATA, BEFORE_DATA, ALLOWED_ANYWHERE
-]
-# Ensure no repeats
-assert len(frozenset().union(*_allsets)) == sum(map(len, _allsets))
-del _allsets
-
-
-class BeforePaletteChunkStateMachine(object):
+class BeforePaletteChunkStateMachine(BaseStateMachine):
     def __init__(self):
-        self.state = START_STATE
         self._transitions = {
-            START_STATE: BEFORE_PALETTE | BEFORE_DATA | ALLOWED_ANYWHERE,
-            b'PLTE': {},
+            START_STATE: frozenset({b'PLTE', b'IDAT'}).union(
+                BEFORE_PALETTE,
+                BEFORE_DATA,
+                ALLOWED_ANYWHERE
+            ),
+            b'PLTE': frozenset(),
+            b'IDAT': frozenset(),
+        }
+
+
+class AfterPaletteBeforeDataStateMachine(BaseStateMachine):
+    def __init__(self):
+        self._transitions = {
+            START_STATE: frozenset({b'IDAT'}).union(
+                AFTER_PALETTE_BEFORE_DATA,
+                BEFORE_DATA,
+                ALLOWED_ANYWHERE
+            ),
+            b'IDAT': frozenset(),
+        }
+
+
+class AfterDataStateMachine(BaseStateMachine):
+    def __init__(self):
+        self._transitions = {
+            START_STATE: frozenset({b'IEND'}).union(ALLOWED_ANYWHERE),
+            b'IEND': frozenset(),
         }
