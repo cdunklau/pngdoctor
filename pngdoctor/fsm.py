@@ -96,14 +96,49 @@ class ChunkGrammarParser(object):
     def __init__(self):
         self.state = ChunkProcessingState.before_header
         self.counts = ChunkCountValidator()
-        # TODO: Add transitions structure.
-        #       Should be a map of state -> (
-        #           dict of allowed codes -> result state
-        #       )
+
+        s = ChunkProcessingState
+        self._transitions = {s.before_header: {b'IHDR': s.before_palette}}
+        # TODO: Abstract this so it's easier to read and grok
+        # TODO: Add unknown chunk handling
+        before_palette_transitions = {}
+        before_palette_transitions.update({
+            code: s.before_palette
+            for code in BEFORE_PALETTE.union(BEFORE_DATA, ALLOWED_ANYWHERE)
+        })
+        before_palette_transitions.update({
+            code: s.after_palette_before_data
+            for code in AFTER_PALETTE_BEFORE_DATA
+        })
+        before_palette_transitions[b'IDAT'] = s.during_data
+        self._transitions[s.before_palette] = before_palette_transitions
+        after_palette_before_data_transitions = {}
+        after_palette_before_data_transitions.update({
+            code: s.after_palette_before_data
+            for code in AFTER_PALETTE_BEFORE_DATA.union(
+                BEFORE_DATA, ALLOWED_ANYWHERE
+            )
+        })
+        after_palette_before_data_transitions[b'IDAT'] = s.during_data
+        self._transitions[s.after_palette_before_data] = \
+            after_palette_before_data_transitions
+        during_data_transitions = {b'IDAT': s.during_data}
+        during_data_transitions.update({
+            code: s.after_data for code in ALLOWED_ANYWHERE
+        })
+        during_data_transitions[b'IEND'] = s.after_trailer
+        self._transitions[s.during_data] = during_data_transitions
+        self._transitions[s.after_data] = {}
+        assert set(ChunkProcessingState) == self._transitions.keys()
 
     def validate(self, chunk_code):
         self.counts.check(chunk_code)
-        # TODO finish this. Add transition processing.
+        available_transitions = self._transitions[self.state]
+        if chunk_code not in available_transitions:
+            raise PNGSyntaxError(
+                'Chunk {code} is not allowed here'.format(code=chunk_code)
+            )
+        self.state = available_transitions[chunk_code]
 
 
 class ChunkCountValidator(object):
