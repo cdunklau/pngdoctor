@@ -75,24 +75,27 @@ class ChunkOrderParser(object):
         self.counts = ChunkCountValidator()
 
         s = ChunkOrderState
-        self._transitions = {s.before_header: {b'IHDR': s.before_palette}}
-        # TODO: Abstract this so it's easier to read and grok
-        # TODO: Add unknown chunk handling
-        # To implement this, I need a mapping with some helper methods
-        # that allow easy adding of new states.
-        before_palette_transitions = {}
-        before_palette_transitions.update({
-            code: s.before_palette
-            for code in BEFORE_PALETTE.union(BEFORE_DATA, ALLOWED_ANYWHERE)
-        })
-        before_palette_transitions.update({
-            code: s.after_palette_before_data
-            for code in AFTER_PALETTE_BEFORE_DATA
-        })
-        before_palette_transitions[b'PLTE'] = s.after_palette_before_data
-        before_palette_transitions[b'IDAT'] = s.during_data
 
-        self._transitions[s.before_palette] = before_palette_transitions
+        before_header_transitions = ChunkOrderStateTransitionMap()
+        before_header_transitions.add_one_transition(
+            s.before_palette, b'IHDR')
+
+        before_palette_transitions = ChunkOrderStateTransitionMap()
+        before_palette_transitions.set_unknown_chunk_next_state(
+            s.before_palette)
+        before_palette_transitions.add_transitions(
+            s.before_palette,
+            BEFORE_PALETTE, BEFORE_DATA, ALLOWED_ANYWHERE,
+        )
+        before_palette_transitions.add_transitions(
+            s.after_palette_before_data,
+            AFTER_PALETTE_BEFORE_DATA
+        )
+        before_palette_transitions.add_one_transition(
+            s.after_palette_before_data, b'PLTE')
+        before_palette_transitions.add_one_transition(s.during_data, b'IDAT')
+
+        # TODO: Finish converting these
         after_palette_before_data_transitions = {}
         after_palette_before_data_transitions.update({
             code: s.after_palette_before_data
@@ -101,24 +104,28 @@ class ChunkOrderParser(object):
             )
         })
         after_palette_before_data_transitions[b'IDAT'] = s.during_data
-        self._transitions[s.after_palette_before_data] = \
-            after_palette_before_data_transitions
 
         during_data_transitions = {b'IDAT': s.during_data}
         during_data_transitions.update({
             code: s.after_data for code in ALLOWED_ANYWHERE
         })
         during_data_transitions[b'IEND'] = s.after_trailer
-        self._transitions[s.during_data] = during_data_transitions
 
         after_data_transitions = {}
         after_data_transitions.update({
             code: s.after_data for code in ALLOWED_ANYWHERE
         })
-        self._transitions[s.after_data] = after_data_transitions
 
-        # End state
-        self._transitions[s.after_trailer] = {}
+        self._transitions = {
+            s.before_header: before_header_transitions,
+            s.before_palette: before_palette_transitions,
+            s.after_palette_before_data: after_palette_before_data_transitions,
+            s.during_data: during_data_transitions,
+            s.after_data: after_data_transitions,
+            # End state
+            s.after_trailer: {},
+        }
+
 
         assert set(ChunkOrderState) == self._transitions.keys()
 
@@ -162,11 +169,11 @@ class ChunkOrderStateTransitionMap(collections.abc.Mapping):
     implement MutableMapping because it shouldn't be mutated after
     the initial configuration.
     """
-    def __init__(self, unknown_chunk_next_state=None):
+    def __init__(self):
         self._map = {}
-        self._unknown_chunk_next_state = unknown_chunk_next_state
+        self._unknown_chunk_next_state = None
 
-    def add_transition(self, next_state, chunk_code):
+    def add_one_transition(self, next_state, chunk_code):
         """
         Add a single transition.
         """
@@ -179,7 +186,10 @@ class ChunkOrderStateTransitionMap(collections.abc.Mapping):
     def add_transitions(self, next_state, *chunk_code_sets):
         for chunk_codes in chunk_code_sets:
             for chunk_code in chunk_codes:
-                self.add_transition(next_state, chunk_code)
+                self.add_one_transition(next_state, chunk_code)
+
+    def set_unknown_chunk_next_state(self, next_state):
+        self._unknown_chunk_next_state = next_state
 
     def __getitem__(self, key):
         try:

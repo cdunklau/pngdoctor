@@ -38,3 +38,24 @@ class TestChunkOrderParser(object):
             chunk_order_parser.validate(chunk_code)
         with pytest.raises(PNGSyntaxError):
             chunk_order_parser.validate_end()
+
+
+    @pytest.mark.parametrize('chunk_codes', [
+        [b'IHDR', b'ukwn', b'PLTE', b'IDAT', b'IEND'],
+        [b'IHDR', b'PLTE', b'ukwn', b'IDAT', b'IEND'],
+        [b'IHDR', b'PLTE', b'IDAT', b'ukwn', b'IEND'],
+        [b'IHDR', b'ukwn', b'IDAT', b'ukwn', b'IEND'],
+        [b'IHDR', b'ukwn', b'IDAT', b'IEND'],
+    ])
+    def test_unknown_chunks_valid(self, chunk_codes, chunk_order_parser):
+        for chunk_code in chunk_codes:
+            chunk_order_parser.validate(chunk_code)
+        chunk_order_parser.validate_end()
+
+
+    def test_unknown_chunks_invalid(self, chunk_order_parser):
+        pytest.fail('not done yet')
+        # TODO: Add tests for unknown chunk in wrong places
+
+
+
