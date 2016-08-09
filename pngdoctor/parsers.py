@@ -68,7 +68,7 @@ assert len(KNOWN_CHUNKS) == sum(map(len, _allsets))
 del _allsets
 
 
-class ChunkGrammarParser(object):
+class ChunkOrderParser(object):
     def __init__(self):
         self.state = ChunkOrderState.before_header
         self.counts = ChunkCountValidator()
@@ -86,7 +86,9 @@ class ChunkGrammarParser(object):
             code: s.after_palette_before_data
             for code in AFTER_PALETTE_BEFORE_DATA
         })
+        before_palette_transitions[b'PLTE'] = s.after_palette_before_data
         before_palette_transitions[b'IDAT'] = s.during_data
+
         self._transitions[s.before_palette] = before_palette_transitions
         after_palette_before_data_transitions = {}
         after_palette_before_data_transitions.update({
@@ -98,13 +100,23 @@ class ChunkGrammarParser(object):
         after_palette_before_data_transitions[b'IDAT'] = s.during_data
         self._transitions[s.after_palette_before_data] = \
             after_palette_before_data_transitions
+
         during_data_transitions = {b'IDAT': s.during_data}
         during_data_transitions.update({
             code: s.after_data for code in ALLOWED_ANYWHERE
         })
         during_data_transitions[b'IEND'] = s.after_trailer
         self._transitions[s.during_data] = during_data_transitions
-        self._transitions[s.after_data] = {}
+
+        after_data_transitions = {}
+        after_data_transitions.update({
+            code: s.after_data for code in ALLOWED_ANYWHERE
+        })
+        self._transitions[s.after_data] = after_data_transitions
+
+        # End state
+        self._transitions[s.after_trailer] = {}
+
         assert set(ChunkOrderState) == self._transitions.keys()
 
     def validate(self, chunk_code):

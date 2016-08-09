@@ -331,7 +331,9 @@ class PNGChunkSequenceValidator(object):
 
     def validate(self, chunk_head_token):
         if chunk_head_token.code not in self._allowed_chunk_type_codes:
-            raise PNGSyntaxError(
+            raise PNGSyntaxError('Bad chunk code {code}'.format(
+                code=chunk_head_token.code
+            ))
         chunk_type = models.CODE_TYPES.get(chunk_head_token.code)
         if chunk_type is None:
             fmt = 'Unknown chunk type code {code} at byte {pos}'
