@@ -116,6 +116,13 @@ class ChunkGrammarParser(object):
             )
         self.state = available_transitions[chunk_code]
 
+    def validate_end(self):
+        """
+        Raise an exception if the last chunk seen was not IEND.
+        """
+        if self.state is not ChunkOrderState.after_trailer:
+            raise PNGSyntaxError('Missing IEND')
+
 
 class ChunkCountValidator(object):
     def __init__(self):
