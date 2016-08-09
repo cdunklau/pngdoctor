@@ -1,7 +1,3 @@
-"""
-Finite state machines.
-"""
-
 import collections
 import enum
 
@@ -43,28 +39,8 @@ from pngdoctor.exceptions import PNGSyntaxError
 #         tEXt    Yes     None
 #         zTXt    Yes     None
 
-'''
-The PNG chunk code alphabet is the set of strings comprising of exactly four
-uppercase or lowercase ASCII letters: (a-zA-Z){4}
-
-png_regular_expression =
-    "IHDR"
-    (BEFORE_PALETTE|BEFORE_DATA|ALLOWED_ANYWHERE|UNKNOWN) *
-    "PLTE" ? 
-    (AFTER_PALETTE_BEFORE_DATA|BEFORE_DATA|ALLOWED_ANYWHERE|UNKNOWN) *
-    "IDAT" +
-    (ALLOWED_ANYWHERE|UNKNOWN) *
-    "IEND"
-
-This does not handle the uniqueness constraints in the ancillary chunks.
-More research is necessary before I can figure out which formal language
-class describes sequences of PNG chunk codes.
-
-'''
-
-
 @enum.unique
-class ChunkProcessingState(enum.Enum):
+class ChunkOrderState(enum.Enum):
     before_header = 0
     before_palette = 1
     after_palette_before_data = 2
@@ -94,10 +70,10 @@ del _allsets
 
 class ChunkGrammarParser(object):
     def __init__(self):
-        self.state = ChunkProcessingState.before_header
+        self.state = ChunkOrderState.before_header
         self.counts = ChunkCountValidator()
 
-        s = ChunkProcessingState
+        s = ChunkOrderState
         self._transitions = {s.before_header: {b'IHDR': s.before_palette}}
         # TODO: Abstract this so it's easier to read and grok
         # TODO: Add unknown chunk handling
@@ -129,7 +105,7 @@ class ChunkGrammarParser(object):
         during_data_transitions[b'IEND'] = s.after_trailer
         self._transitions[s.during_data] = during_data_transitions
         self._transitions[s.after_data] = {}
-        assert set(ChunkProcessingState) == self._transitions.keys()
+        assert set(ChunkOrderState) == self._transitions.keys()
 
     def validate(self, chunk_code):
         self.counts.check(chunk_code)
@@ -154,70 +130,3 @@ class ChunkCountValidator(object):
             fmt = 'More than one {code} chunk seen, but at most one allowed'
             raise PNGSyntaxError(fmt.format(code=chunk_code.decode('ascii')))
         self._nseen[chunk_code] += 1
-
-
-## The stuff below is all obsolete, keeping for the moment though.
-
-class BaseStateMachine(object):
-    state = START_STATE
-    # Maps current state to set of acceptable next states.
-    # State with empty set as next state is an accepting state.
-    _transitions = None
-
-    def get_result(self, chunk_code):
-        if chunk_code not in self._transitions:
-            return DELEGATE
-        available = self._transitions[self.state]
-        if chunk_code not in available:
-            return INVALID
-
-        self.state = chunk_code
-        if self._transitions[self.state]:
-            return VALID
-        else:
-            return COMPLETE
-
-
-
-class CriticalChunkStateMachine(BaseStateMachine):
-    def __init__(self):
-        self._transitions = {
-            START_STATE: frozenset({b'IHDR'}),
-            b'IHDR': frozenset({b'PLTE', b'IDAT'}),
-            b'PLTE': frozenset({b'IDAT'}),
-            b'IDAT': frozenset({b'IDAT'}),
-            b'IEND': frozenset(),
-        }
-
-
-class BeforePaletteChunkStateMachine(BaseStateMachine):
-    def __init__(self):
-        self._transitions = {
-            START_STATE: frozenset({b'PLTE', b'IDAT'}).union(
-                BEFORE_PALETTE,
-                BEFORE_DATA,
-                ALLOWED_ANYWHERE
-            ),
-            b'PLTE': frozenset(),
-            b'IDAT': frozenset(),
-        }
-
-
-class AfterPaletteBeforeDataStateMachine(BaseStateMachine):
-    def __init__(self):
-        self._transitions = {
-            START_STATE: frozenset({b'IDAT'}).union(
-                AFTER_PALETTE_BEFORE_DATA,
-                BEFORE_DATA,
-                ALLOWED_ANYWHERE
-            ),
-            b'IDAT': frozenset(),
-        }
-
-
-class AfterDataStateMachine(BaseStateMachine):
-    def __init__(self):
-        self._transitions = {
-            START_STATE: frozenset({b'IEND'}).union(ALLOWED_ANYWHERE),
-            b'IEND': frozenset(),
-        }
