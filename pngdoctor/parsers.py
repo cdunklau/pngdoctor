@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import enum
 
 from pngdoctor.exceptions import PNGSyntaxError
@@ -77,6 +78,8 @@ class ChunkOrderParser(object):
         self._transitions = {s.before_header: {b'IHDR': s.before_palette}}
         # TODO: Abstract this so it's easier to read and grok
         # TODO: Add unknown chunk handling
+        # To implement this, I need a mapping with some helper methods
+        # that allow easy adding of new states.
         before_palette_transitions = {}
         before_palette_transitions.update({
             code: s.before_palette
@@ -149,3 +152,47 @@ class ChunkCountValidator(object):
             fmt = 'More than one {code} chunk seen, but at most one allowed'
             raise PNGSyntaxError(fmt.format(code=chunk_code.decode('ascii')))
         self._nseen[chunk_code] += 1
+
+
+class ChunkOrderStateTransitionMap(collections.abc.Mapping):
+    """
+    Mapping for state transitions in :class:`ChunkOrderParser`.
+
+    Although this structure is mutable with methods, it doesn't
+    implement MutableMapping because it shouldn't be mutated after
+    the initial configuration.
+    """
+    def __init__(self, unknown_chunk_next_state=None):
+        self._map = {}
+        self._unknown_chunk_next_state = unknown_chunk_next_state
+
+    def add_transition(self, next_state, chunk_code):
+        """
+        Add a single transition.
+        """
+        if chunk_code in self._map:
+            raise ValueError('Chunk code {code} already in mapping'.format(
+                code=chunk_code
+            ))
+        self._map[chunk_code] = next_state
+
+    def add_transitions(self, next_state, *chunk_code_sets):
+        for chunk_codes in chunk_code_sets:
+            for chunk_code in chunk_codes:
+                self.add_transition(next_state, chunk_code)
+
+    def __getitem__(self, key):
+        try:
+            return self._map[key]
+        except KeyError:
+            if (self._unknown_chunk_next_state is None
+                    # Ensure we don't allow unwanted state transitions
+                    or key in KNOWN_CHUNKS):
+                raise
+            return self._unknown_chunk_next_state
+
+    def __iter__(self):
+        return iter(self._map)
+
+    def __len__(self):
+        return len(self._map)
