@@ -1,9 +1,12 @@
 import collections
 import collections.abc
 import enum
+import logging
 
 from pngdoctor.exceptions import PNGSyntaxError
 
+
+logger = logging.getLogger(__name__)
 
 # From PNG 1.2 specification:
 #
@@ -74,69 +77,90 @@ class ChunkOrderParser(object):
         self.state = ChunkOrderState.before_header
         self.counts = ChunkCountValidator()
 
-        s = ChunkOrderState
-
         before_header_transitions = ChunkOrderStateTransitionMap()
         before_header_transitions.add_one_transition(
-            s.before_palette, b'IHDR')
+            ChunkOrderState.before_palette, b'IHDR')
 
         before_palette_transitions = ChunkOrderStateTransitionMap()
         before_palette_transitions.set_unknown_chunk_next_state(
-            s.before_palette)
+            ChunkOrderState.before_palette)
         before_palette_transitions.add_transitions(
-            s.before_palette,
+            ChunkOrderState.before_palette,
             BEFORE_PALETTE, BEFORE_DATA, ALLOWED_ANYWHERE,
         )
         before_palette_transitions.add_transitions(
-            s.after_palette_before_data,
+            ChunkOrderState.after_palette_before_data,
             AFTER_PALETTE_BEFORE_DATA
         )
         before_palette_transitions.add_one_transition(
-            s.after_palette_before_data, b'PLTE')
-        before_palette_transitions.add_one_transition(s.during_data, b'IDAT')
+            ChunkOrderState.after_palette_before_data, b'PLTE')
+        before_palette_transitions.add_one_transition(
+            ChunkOrderState.during_data, b'IDAT')
 
-        # TODO: Finish converting these
-        after_palette_before_data_transitions = {}
-        after_palette_before_data_transitions.update({
-            code: s.after_palette_before_data
-            for code in AFTER_PALETTE_BEFORE_DATA.union(
-                BEFORE_DATA, ALLOWED_ANYWHERE
-            )
-        })
-        after_palette_before_data_transitions[b'IDAT'] = s.during_data
+        after_palette_before_data_transitions = ChunkOrderStateTransitionMap()
+        after_palette_before_data_transitions.set_unknown_chunk_next_state(
+            ChunkOrderState.after_palette_before_data)
+        after_palette_before_data_transitions.add_transitions(
+            ChunkOrderState.after_palette_before_data,
+            AFTER_PALETTE_BEFORE_DATA, BEFORE_DATA, ALLOWED_ANYWHERE,
+        )
+        after_palette_before_data_transitions.add_one_transition(
+            ChunkOrderState.during_data, b'IDAT')
 
-        during_data_transitions = {b'IDAT': s.during_data}
-        during_data_transitions.update({
-            code: s.after_data for code in ALLOWED_ANYWHERE
-        })
-        during_data_transitions[b'IEND'] = s.after_trailer
+        during_data_transitions = ChunkOrderStateTransitionMap()
+        during_data_transitions.set_unknown_chunk_next_state(
+            ChunkOrderState.after_data)
+        during_data_transitions.add_one_transition(
+            ChunkOrderState.during_data, b'IDAT')
+        during_data_transitions.add_transitions(
+            ChunkOrderState.after_data, ALLOWED_ANYWHERE)
+        during_data_transitions.add_one_transition(
+            ChunkOrderState.after_trailer, b'IEND')
 
-        after_data_transitions = {}
-        after_data_transitions.update({
-            code: s.after_data for code in ALLOWED_ANYWHERE
-        })
+        after_data_transitions = ChunkOrderStateTransitionMap()
+        after_data_transitions.set_unknown_chunk_next_state(
+            ChunkOrderState.after_data)
+        after_data_transitions.add_transitions(
+            ChunkOrderState.after_data, ALLOWED_ANYWHERE)
+        after_data_transitions.add_one_transition(
+            ChunkOrderState.after_trailer, b'IEND')
 
         self._transitions = {
-            s.before_header: before_header_transitions,
-            s.before_palette: before_palette_transitions,
-            s.after_palette_before_data: after_palette_before_data_transitions,
-            s.during_data: during_data_transitions,
-            s.after_data: after_data_transitions,
+            ChunkOrderState.before_header: before_header_transitions,
+            ChunkOrderState.before_palette: before_palette_transitions,
+            ChunkOrderState.after_palette_before_data:
+                after_palette_before_data_transitions,
+            ChunkOrderState.during_data: during_data_transitions,
+            ChunkOrderState.after_data: after_data_transitions,
             # End state
-            s.after_trailer: {},
+            ChunkOrderState.after_trailer: {},
         }
 
 
         assert set(ChunkOrderState) == self._transitions.keys()
 
     def validate(self, chunk_code):
+        msg = 'In state {state}, validating code {code}'.format(
+            state=self.state, code=chunk_code
+        )
+        logging.debug(msg)
+        print(msg)
         self.counts.check(chunk_code)
         available_transitions = self._transitions[self.state]
         if chunk_code not in available_transitions:
             raise PNGSyntaxError(
                 'Chunk {code} is not allowed here'.format(code=chunk_code)
             )
-        self.state = available_transitions[chunk_code]
+        next_state = available_transitions[chunk_code]
+        if next_state is self.state:
+            msg = 'Staying in state {state}'.format(state=self.state)
+            logging.debug(msg)
+            print(msg)
+        else:
+            msg = 'Changing state to {next}'.format(next=next_state)
+            logging.debug(msg)
+            print(msg)
+        self.state = next_state
 
     def validate_end(self):
         """
@@ -180,6 +204,13 @@ class ChunkOrderStateTransitionMap(collections.abc.Mapping):
         if chunk_code in self._map:
             raise ValueError('Chunk code {code} already in mapping'.format(
                 code=chunk_code
+            ))
+        if not isinstance(next_state, ChunkOrderState):
+            fmt = 'Next state must be ChunkOrderState, not {type}'
+            raise TypeError(fmt.format(type=type(next_state)))
+        if not isinstance(chunk_code, bytes):
+            raise TypeError('Chunk code must be bytes, not {type}'.format(
+                type=type(chunk_code)
             ))
         self._map[chunk_code] = next_state
 
