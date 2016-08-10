@@ -22,6 +22,7 @@ class TestChunkOrderParser(object):
     @pytest.mark.parametrize('chunk_codes', [
         [b'IHDR', b'IDAT', b'IEND', b'IDAT'],
         [b'IHDR', b'PLTE', b'IEND'],
+        [b'ukwn'],  # Unknown chunk not allowed first
         # TODO: Add lots more here
     ])
     def test_last_chunk_code_errors(self, chunk_codes, chunk_order_parser):
@@ -32,7 +33,14 @@ class TestChunkOrderParser(object):
             chunk_order_parser.validate(chunk_codes[-1])
 
 
-    def test_validate_end_errors(self, chunk_order_parser):
+    def test_validate_header_must_be_first(self, chunk_order_parser):
+        from pngdoctor.exceptions import PNGSyntaxError
+        chunk_code = b'PLTE'
+        with pytest.raises(PNGSyntaxError):
+            chunk_order_parser.validate(chunk_code)
+
+
+    def test_validate_end_errors_when_not_finished(self, chunk_order_parser):
         from pngdoctor.exceptions import PNGSyntaxError
         for chunk_code in [b'IHDR', b'IDAT']:  # No end
             chunk_order_parser.validate(chunk_code)
@@ -51,11 +59,3 @@ class TestChunkOrderParser(object):
         for chunk_code in chunk_codes:
             chunk_order_parser.validate(chunk_code)
         chunk_order_parser.validate_end()
-
-
-    def test_unknown_chunks_invalid(self, chunk_order_parser):
-        pytest.fail('not done yet')
-        # TODO: Add tests for unknown chunk in wrong places
-
-
-
