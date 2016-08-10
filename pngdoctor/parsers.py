@@ -173,7 +173,6 @@ class ChunkOrderParser(object):
             state=self.state, code=chunk_code
         )
         logging.debug(msg)
-        print(msg)
         self.counts.check(chunk_code)
         available_transitions = self._transitions[self.state]
         if chunk_code not in available_transitions:
@@ -184,11 +183,9 @@ class ChunkOrderParser(object):
         if next_state is self.state:
             msg = 'Staying in state {state}'.format(state=self.state)
             logging.debug(msg)
-            print(msg)
         else:
             msg = 'Changing state to {next}'.format(next=next_state)
             logging.debug(msg)
-            print(msg)
         self.state = next_state
 
     def validate_end(self):

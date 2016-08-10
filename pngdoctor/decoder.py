@@ -5,6 +5,7 @@ from collections import namedtuple, Counter
 
 from pngdoctor import exceptions as exc
 from pngdoctor import models
+from pngdoctor import parsers
 
 
 PNG_SIGNATURE = bytes([
@@ -48,7 +49,7 @@ class PNGChunkTokenStream(object):
         self._stream = stream
         self.total_bytes_read = 0
         self.chunk_state = None
-        self.order_validator = PNGChunkSequenceValidator()
+        self.order_validator = parsers.ChunkOrderParser()
 
     def __iter__(self):
         """
@@ -71,7 +72,7 @@ class PNGChunkTokenStream(object):
                 break
 
             head = self._get_chunk_head(initial)
-            self.order_validator.validate(head)
+            self.order_validator.validate(head.code)
             yield head
             while self.chunk_state.next_read > 0:
                 yield self._get_chunk_data()
@@ -273,89 +274,3 @@ class PNGSingleChunkState(object):
 
     def _update_next_read(self):
         self.next_read = min(PNG_CHUNK_MAX_DATA_READ, self.data_remaining)
-
-
-
-def chunk_handler(chunk_type):
-    """
-    Method decorator for chunk handlers.
-
-    Sets an attribute on the function object so the handler dict can
-    be built in :meth:`PNGChunkSequenceValidator.__init__`.
-
-    :param chunk_type: The PNG chunk type.
-    :type chunk_type: :class:`models.PNGChunkType`
-    """
-    if not isinstance(chunk_type, bytes):
-        raise TypeError('chunk_type must be bytes')
-
-    def decorator(method):
-        method.chunk_type = chunk_type
-        return method
-
-    return decorator
-
-
-def _ischunkhandler(member):
-    """Predicate for inspect.getmembers"""
-    return inspect.ismethod(member) and hasattr(member, 'chunk_type_code')
-
-
-
-# TODO: rewrite this to use the things in pngdoctor.fsm
-class PNGChunkSequenceValidator(object):
-    """
-    Tracks the chunks seen and validates their order, presence, and
-    dependencies.
-    """
-    def __init__(self):
-        # PNG chunk codes currently allowed
-        self._allowed_chunk_type_codes = set([b'IHDR'])
-
-        # This probably goes away
-        self._handlers = {}
-        for method in inspect.getmembers(self, _ischunkhandler):
-            if method.chunk_type in self._handlers:
-                fmt = 'Chunk type {type} has more than one handler.'
-                raise TypeError(fmt.format(type=method.chunk_type))
-            self._handlers[method.chunk_type] = method
-
-        # The validation routine to call
-        self._validate = self._validate_image_header
-
-        self.image_header_seen = False
-        self.palette_seen = False
-        self.image_data_seen = False
-        self.image_trailer_seen = False
-        # TODO: needs more attributes
-
-    def validate(self, chunk_head_token):
-        if chunk_head_token.code not in self._allowed_chunk_type_codes:
-            raise PNGSyntaxError('Bad chunk code {code}'.format(
-                code=chunk_head_token.code
-            ))
-        chunk_type = models.CODE_TYPES.get(chunk_head_token.code)
-        if chunk_type is None:
-            fmt = 'Unknown chunk type code {code} at byte {pos}'
-            logger.warning(fmt.format(
-                code=chunk_head_token.code,
-                pos=chunk_head_token.position
-            ))
-        handler_method = self.handlers[chunk_type]
-        handler_method(chunk_head_token)
-        self.seen_chunks[chunk_head_token.code] += 1
-
-    def validate_end(self):
-        """
-        Called when the end of the stream is reached. Ensure that the
-        image end chunk was validated or raise an exception.
-        """
-        if not self.image_trailer_seen:
-            raise exc.PNGSyntaxError(
-                'No image trailer (IEND) chunk before stream end'
-            )
-
-    @chunk_handler(models.IMAGE_HEADER)
-    def _handle_image_header(self, token):
-        if len(self.seen_chunks):
-            raise exc.PNGSyntaxError('Image header must be first chunk')
