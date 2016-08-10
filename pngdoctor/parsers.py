@@ -4,6 +4,7 @@ import enum
 import logging
 
 from pngdoctor.exceptions import PNGSyntaxError
+from pngdoctor import models
 
 
 logger = logging.getLogger(__name__)
@@ -43,22 +44,38 @@ logger = logging.getLogger(__name__)
 #         tEXt    Yes     None
 #         zTXt    Yes     None
 
-@enum.unique
-class ChunkOrderState(enum.Enum):
-    before_header = 0
-    before_palette = 1
-    after_palette_before_data = 2
-    during_data = 3
-    after_data = 4
-    after_trailer = 5
+def code_frozenset(chunk_types):
+    return frozenset(t.code for t in chunk_types)
 
 
-# These might still be useful, so leaving them for now
-CRITICAL = frozenset({b'IHDR', b'PLTE', b'IDAT', b'IEND'})
-BEFORE_PALETTE = frozenset({b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB'})
-AFTER_PALETTE_BEFORE_DATA = frozenset({b'bKGD', b'hIST', b'tRNS'})
-BEFORE_DATA = frozenset({b'pHYs', b'sPLT'})
-ALLOWED_ANYWHERE = frozenset({b'tIME', b'iTXt', b'tEXt', b'zTXt'})
+CRITICAL = code_frozenset({
+    models.IMAGE_HEADER,
+    models.PALETTE,
+    models.IMAGE_DATA,
+    models.IMAGE_TRAILER
+})
+BEFORE_PALETTE = code_frozenset({
+    models.PRIMARY_CHROMATICITIES,
+    models.IMAGE_GAMMA,
+    models.EMBEDDED_ICC_PROFILE,
+    models.SIGNIFICANT_BITS,
+    models.STANDARD_RGB_COLOR_SPACE
+})
+AFTER_PALETTE_BEFORE_DATA = code_frozenset({
+    models.BACKGROUND_COLOR,
+    models.PALETTE_HISTOGRAM,
+    models.TRANSPARENCY
+})
+BEFORE_DATA = code_frozenset({
+    models.PHYSICAL_PIXEL_DIMENSIONS,
+    models.SUGGESTED_PALETTE,
+})
+ALLOWED_ANYWHERE = code_frozenset({
+    models.IMAGE_LAST_MODIFICATION_TIME,
+    models.INTERNATIONAL_TEXTUAL_DATA,
+    models.TEXTUAL_DATA,
+    models.COMPRESSED_TEXTUAL_DATA,
+})
 _allsets = [
     CRITICAL,
     BEFORE_PALETTE,
@@ -69,7 +86,19 @@ _allsets = [
 KNOWN_CHUNKS = frozenset().union(*_allsets)
 # Ensure no repeats
 assert len(KNOWN_CHUNKS) == sum(map(len, _allsets))
+# Ensure everything is covered
+assert KNOWN_CHUNKS == models.CODE_TYPES.keys()
 del _allsets
+
+
+@enum.unique
+class ChunkOrderState(enum.Enum):
+    before_header = 0
+    before_palette = 1
+    after_palette_before_data = 2
+    during_data = 3
+    after_data = 4
+    after_trailer = 5
 
 
 class ChunkOrderParser(object):
@@ -79,7 +108,7 @@ class ChunkOrderParser(object):
 
         before_header_transitions = ChunkOrderStateTransitionMap()
         before_header_transitions.add_one_transition(
-            ChunkOrderState.before_palette, b'IHDR')
+            ChunkOrderState.before_palette, models.IMAGE_HEADER.code)
 
         before_palette_transitions = ChunkOrderStateTransitionMap()
         before_palette_transitions.set_unknown_chunk_next_state(
@@ -93,9 +122,9 @@ class ChunkOrderParser(object):
             AFTER_PALETTE_BEFORE_DATA
         )
         before_palette_transitions.add_one_transition(
-            ChunkOrderState.after_palette_before_data, b'PLTE')
+            ChunkOrderState.after_palette_before_data, models.PALETTE.code)
         before_palette_transitions.add_one_transition(
-            ChunkOrderState.during_data, b'IDAT')
+            ChunkOrderState.during_data, models.IMAGE_DATA.code)
 
         after_palette_before_data_transitions = ChunkOrderStateTransitionMap()
         after_palette_before_data_transitions.set_unknown_chunk_next_state(
@@ -105,17 +134,17 @@ class ChunkOrderParser(object):
             AFTER_PALETTE_BEFORE_DATA, BEFORE_DATA, ALLOWED_ANYWHERE,
         )
         after_palette_before_data_transitions.add_one_transition(
-            ChunkOrderState.during_data, b'IDAT')
+            ChunkOrderState.during_data, models.IMAGE_DATA.code)
 
         during_data_transitions = ChunkOrderStateTransitionMap()
         during_data_transitions.set_unknown_chunk_next_state(
             ChunkOrderState.after_data)
         during_data_transitions.add_one_transition(
-            ChunkOrderState.during_data, b'IDAT')
+            ChunkOrderState.during_data, models.IMAGE_DATA.code)
         during_data_transitions.add_transitions(
             ChunkOrderState.after_data, ALLOWED_ANYWHERE)
         during_data_transitions.add_one_transition(
-            ChunkOrderState.after_trailer, b'IEND')
+            ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
 
         after_data_transitions = ChunkOrderStateTransitionMap()
         after_data_transitions.set_unknown_chunk_next_state(
@@ -123,7 +152,7 @@ class ChunkOrderParser(object):
         after_data_transitions.add_transitions(
             ChunkOrderState.after_data, ALLOWED_ANYWHERE)
         after_data_transitions.add_one_transition(
-            ChunkOrderState.after_trailer, b'IEND')
+            ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
 
         self._transitions = {
             ChunkOrderState.before_header: before_header_transitions,
@@ -173,8 +202,12 @@ class ChunkOrderParser(object):
 class ChunkCountValidator(object):
     def __init__(self):
         self._nseen = collections.Counter()
-        self._multiple_allowed = frozenset({
-            b'IDAT', b'sPLT', b'iTXt', b'tEXt', b'zTXt',
+        self._multiple_allowed = code_frozenset({
+            models.IMAGE_DATA,
+            models.SUGGESTED_PALETTE,
+            models.INTERNATIONAL_TEXTUAL_DATA,
+            models.TEXTUAL_DATA,
+            models.COMPRESSED_TEXTUAL_DATA,
         })
 
     def check(self, chunk_code):
