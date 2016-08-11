@@ -1,7 +1,7 @@
 import inspect
 import struct
 import zlib
-from collections import namedtuple, Counter
+from collections import Counter
 
 from pngdoctor import exceptions as exc
 from pngdoctor import models
@@ -55,10 +55,10 @@ class PNGChunkTokenStream(object):
         """
         Process the stream and produce chunk tokens.
 
-        Yields in order one :class:`PNGChunkHeadToken` instance,
-        zero or more :class:`PNGChunkDataPartToken` instances, then
-        one :class:`PNGChunkEndToken` instance, then repeats for the
-        next chunk.
+        Yields in order one :class:`models.PNGChunkHeadToken` instance,
+        zero or more :class:`models.PNGChunkDataPartToken` instances,
+        then one :class:`models.PNGChunkEndToken` instance, then
+        repeats for the next chunk.
 
         """
         self._validate_signature()
@@ -127,7 +127,7 @@ class PNGChunkTokenStream(object):
                     self.start_position,
                 )
             )
-        head = PNGChunkHeadToken(length, type_code, start_position)
+        head = models.PNGChunkHeadToken(length, type_code, start_position)
         self.chunk_state = PNGSingleChunkState(head)
         return head
 
@@ -137,7 +137,7 @@ class PNGChunkTokenStream(object):
         amount from :attr:`chunk_state`, update the chunk state, and
         return the chunk data part.
 
-        :rtype: :class:`PNGChunkDataPartToken`
+        :rtype: :class:`models.PNGChunkDataPartToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read == 0:
             raise exc.StreamStateError(
@@ -145,7 +145,7 @@ class PNGChunkTokenStream(object):
             )
         data = self._read(self.chunk_state.next_read)
         self.chunk_state.update(data)
-        return PNGChunkDataPartToken(self.chunk_state.head, data)
+        return models.PNGChunkDataPartToken(self.chunk_state.head, data)
 
     def _get_chunk_end(self):
         """
@@ -153,7 +153,7 @@ class PNGChunkTokenStream(object):
         CRC32 checksum, check if it matches the calculated checksum,
         and wipe the state.
 
-        :rtype: :class:`PNGChunkEndToken`
+        :rtype: :class:`models.PNGChunkEndToken`
         """
         if self.chunk_state is None or self.chunk_state.next_read != 0:
             raise exc.StreamStateError(
@@ -162,7 +162,7 @@ class PNGChunkTokenStream(object):
         
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self.chunk_state.crc32
-        rval = PNGChunkEndToken(self.chunk_state.head, crc32okay)
+        rval = models.PNGChunkEndToken(self.chunk_state.head, crc32okay)
         self.chunk_state = None
         return rval
 
@@ -194,41 +194,6 @@ class PNGChunkTokenStream(object):
         return data
 
 
-class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
-    """
-    The start of a PNG chunk.
-
-    :ivar length: The number of bytes comprising the chunk's data
-    :type length: int
-    :ivar code: The PNG chunk type code
-    :type code: bytes
-    :ivar position: Where the chunk started in the stream
-    :type position: int
-    """
-
-
-class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
-    """
-    A portion (or all) of the data from a PNG chunk.
-
-    :ivar head: The head token from this chunk
-    :type head: :class:`PNGChunkHeadToken`
-    :ivar data: The bytes from this portion of the chunk
-    :type data: bytes
-    """
-
-
-class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
-    """
-    The end marker for a PNG chunk.
-
-    :ivar head: The head token from this chunk
-    :type head: :class:`PNGChunkHeadToken`
-    :ivar crc32ok: If the CRC32 checksum validated properly
-    :type crc32ok: bool
-    """
-
-
 class PNGSingleChunkState(object):
     """
     Represents the state of processing of a single chunk.
@@ -238,7 +203,7 @@ class PNGSingleChunkState(object):
     :ivar head:
         The chunk's header: total length of the chunk data, type code,
         and the position in the stream where the chunk started
-    :type head: :class:`PNGChunkHeadToken`
+    :type head: :class:`models.PNGChunkHeadToken`
     :ivar data_remaining:
         The number of chunk data bytes not yet processed
     :type data_remaining: int

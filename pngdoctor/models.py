@@ -92,6 +92,40 @@ CODE_TYPES = {
 }
 
 
+class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
+    """
+    The start of a PNG chunk.
+
+    :ivar length: The number of bytes comprising the chunk's data
+    :type length: int
+    :ivar code: The PNG chunk type code
+    :type code: bytes
+    :ivar position: Where the chunk started in the stream
+    :type position: int
+    """
+
+
+class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
+    """
+    A portion (or all) of the data from a PNG chunk.
+
+    :ivar head: The head token from this chunk
+    :type head: :class:`PNGChunkHeadToken`
+    :ivar data: The bytes from this portion of the chunk
+    :type data: bytes
+    """
+
+
+class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
+    """
+    The end marker for a PNG chunk.
+
+    :ivar head: The head token from this chunk
+    :type head: :class:`PNGChunkHeadToken`
+    :ivar crc32ok: If the CRC32 checksum validated properly
+    :type crc32ok: bool
+    """
+
 
 PNG_MAX_HEIGHT = PNG_MAX_WIDTH = 2**31 - 1
 PNG_MIN_WIDTH = PNG_MIN_HEIGHT = 1
