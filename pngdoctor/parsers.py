@@ -44,55 +44,55 @@ logger = logging.getLogger(__name__)
 #         tEXt    Yes     None
 #         zTXt    Yes     None
 
-def code_frozenset(chunk_types):
+def _code_frozenset(chunk_types):
     return frozenset(t.code for t in chunk_types)
 
 
-CRITICAL = code_frozenset({
+_CRITICAL_CHUNK_CODES = _code_frozenset({
     models.IMAGE_HEADER,
     models.PALETTE,
     models.IMAGE_DATA,
     models.IMAGE_TRAILER
 })
-BEFORE_PALETTE = code_frozenset({
+_BEFORE_PALETTE = _code_frozenset({
     models.PRIMARY_CHROMATICITIES,
     models.IMAGE_GAMMA,
     models.EMBEDDED_ICC_PROFILE,
     models.SIGNIFICANT_BITS,
     models.STANDARD_RGB_COLOR_SPACE
 })
-AFTER_PALETTE_BEFORE_DATA = code_frozenset({
+_AFTER_PALETTE_BEFORE_DATA = _code_frozenset({
     models.BACKGROUND_COLOR,
     models.PALETTE_HISTOGRAM,
     models.TRANSPARENCY
 })
-BEFORE_DATA = code_frozenset({
+_BEFORE_DATA = _code_frozenset({
     models.PHYSICAL_PIXEL_DIMENSIONS,
     models.SUGGESTED_PALETTE,
 })
-ALLOWED_ANYWHERE = code_frozenset({
+_ALLOWED_ANYWHERE = _code_frozenset({
     models.IMAGE_LAST_MODIFICATION_TIME,
     models.INTERNATIONAL_TEXTUAL_DATA,
     models.TEXTUAL_DATA,
     models.COMPRESSED_TEXTUAL_DATA,
 })
 _allsets = [
-    CRITICAL,
-    BEFORE_PALETTE,
-    AFTER_PALETTE_BEFORE_DATA,
-    BEFORE_DATA,
-    ALLOWED_ANYWHERE
+    _CRITICAL_CHUNK_CODES,
+    _BEFORE_PALETTE,
+    _AFTER_PALETTE_BEFORE_DATA,
+    _BEFORE_DATA,
+    _ALLOWED_ANYWHERE
 ]
-KNOWN_CHUNKS = frozenset().union(*_allsets)
+_KNOWN_CHUNKS = frozenset().union(*_allsets)
 # Ensure no repeats
-assert len(KNOWN_CHUNKS) == sum(map(len, _allsets))
+assert len(_KNOWN_CHUNKS) == sum(map(len, _allsets))
 # Ensure everything is covered
-assert KNOWN_CHUNKS == models.CODE_TYPES.keys()
+assert _KNOWN_CHUNKS == models.CODE_TYPES.keys()
 del _allsets
 
 
 @enum.unique
-class ChunkOrderState(enum.Enum):
+class _ChunkOrderState(enum.Enum):
     before_header = 0
     before_palette = 1
     after_palette_before_data = 2
@@ -103,103 +103,103 @@ class ChunkOrderState(enum.Enum):
 
 class ChunkOrderParser(object):
     def __init__(self):
-        self.state = ChunkOrderState.before_header
-        self.counts = ChunkCountValidator()
+        self._state = _ChunkOrderState.before_header
+        self._counts = _ChunkCountValidator()
 
-        before_header_transitions = ChunkOrderStateTransitionMap()
+        before_header_transitions = _ChunkOrderStateTransitionMap()
         before_header_transitions.add_one_transition(
-            ChunkOrderState.before_palette, models.IMAGE_HEADER.code)
+            _ChunkOrderState.before_palette, models.IMAGE_HEADER.code)
 
-        before_palette_transitions = ChunkOrderStateTransitionMap()
+        before_palette_transitions = _ChunkOrderStateTransitionMap()
         before_palette_transitions.set_unknown_chunk_next_state(
-            ChunkOrderState.before_palette)
+            _ChunkOrderState.before_palette)
         before_palette_transitions.add_transitions(
-            ChunkOrderState.before_palette,
-            BEFORE_PALETTE, BEFORE_DATA, ALLOWED_ANYWHERE,
+            _ChunkOrderState.before_palette,
+            _BEFORE_PALETTE, _BEFORE_DATA, _ALLOWED_ANYWHERE,
         )
         before_palette_transitions.add_transitions(
-            ChunkOrderState.after_palette_before_data,
-            AFTER_PALETTE_BEFORE_DATA
+            _ChunkOrderState.after_palette_before_data,
+            _AFTER_PALETTE_BEFORE_DATA
         )
         before_palette_transitions.add_one_transition(
-            ChunkOrderState.after_palette_before_data, models.PALETTE.code)
+            _ChunkOrderState.after_palette_before_data, models.PALETTE.code)
         before_palette_transitions.add_one_transition(
-            ChunkOrderState.during_data, models.IMAGE_DATA.code)
+            _ChunkOrderState.during_data, models.IMAGE_DATA.code)
 
-        after_palette_before_data_transitions = ChunkOrderStateTransitionMap()
+        after_palette_before_data_transitions = _ChunkOrderStateTransitionMap()
         after_palette_before_data_transitions.set_unknown_chunk_next_state(
-            ChunkOrderState.after_palette_before_data)
+            _ChunkOrderState.after_palette_before_data)
         after_palette_before_data_transitions.add_transitions(
-            ChunkOrderState.after_palette_before_data,
-            AFTER_PALETTE_BEFORE_DATA, BEFORE_DATA, ALLOWED_ANYWHERE,
+            _ChunkOrderState.after_palette_before_data,
+            _AFTER_PALETTE_BEFORE_DATA, _BEFORE_DATA, _ALLOWED_ANYWHERE,
         )
         after_palette_before_data_transitions.add_one_transition(
-            ChunkOrderState.during_data, models.IMAGE_DATA.code)
+            _ChunkOrderState.during_data, models.IMAGE_DATA.code)
 
-        during_data_transitions = ChunkOrderStateTransitionMap()
+        during_data_transitions = _ChunkOrderStateTransitionMap()
         during_data_transitions.set_unknown_chunk_next_state(
-            ChunkOrderState.after_data)
+            _ChunkOrderState.after_data)
         during_data_transitions.add_one_transition(
-            ChunkOrderState.during_data, models.IMAGE_DATA.code)
+            _ChunkOrderState.during_data, models.IMAGE_DATA.code)
         during_data_transitions.add_transitions(
-            ChunkOrderState.after_data, ALLOWED_ANYWHERE)
+            _ChunkOrderState.after_data, _ALLOWED_ANYWHERE)
         during_data_transitions.add_one_transition(
-            ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
+            _ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
 
-        after_data_transitions = ChunkOrderStateTransitionMap()
+        after_data_transitions = _ChunkOrderStateTransitionMap()
         after_data_transitions.set_unknown_chunk_next_state(
-            ChunkOrderState.after_data)
+            _ChunkOrderState.after_data)
         after_data_transitions.add_transitions(
-            ChunkOrderState.after_data, ALLOWED_ANYWHERE)
+            _ChunkOrderState.after_data, _ALLOWED_ANYWHERE)
         after_data_transitions.add_one_transition(
-            ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
+            _ChunkOrderState.after_trailer, models.IMAGE_TRAILER.code)
 
         self._transitions = {
-            ChunkOrderState.before_header: before_header_transitions,
-            ChunkOrderState.before_palette: before_palette_transitions,
-            ChunkOrderState.after_palette_before_data:
+            _ChunkOrderState.before_header: before_header_transitions,
+            _ChunkOrderState.before_palette: before_palette_transitions,
+            _ChunkOrderState.after_palette_before_data:
                 after_palette_before_data_transitions,
-            ChunkOrderState.during_data: during_data_transitions,
-            ChunkOrderState.after_data: after_data_transitions,
+            _ChunkOrderState.during_data: during_data_transitions,
+            _ChunkOrderState.after_data: after_data_transitions,
             # End state
-            ChunkOrderState.after_trailer: {},
+            _ChunkOrderState.after_trailer: {},
         }
 
 
-        assert set(ChunkOrderState) == self._transitions.keys()
+        assert set(_ChunkOrderState) == self._transitions.keys()
 
     def validate(self, chunk_code):
         msg = 'In state {state}, validating code {code}'.format(
-            state=self.state, code=chunk_code
+            state=self._state, code=chunk_code
         )
         logging.debug(msg)
-        self.counts.check(chunk_code)
-        available_transitions = self._transitions[self.state]
+        self._counts.check(chunk_code)
+        available_transitions = self._transitions[self._state]
         if chunk_code not in available_transitions:
             raise PNGSyntaxError(
                 'Chunk {code} is not allowed here'.format(code=chunk_code)
             )
         next_state = available_transitions[chunk_code]
-        if next_state is self.state:
-            msg = 'Staying in state {state}'.format(state=self.state)
+        if next_state is self._state:
+            msg = 'Staying in state {state}'.format(state=self._state)
             logging.debug(msg)
         else:
             msg = 'Changing state to {next}'.format(next=next_state)
             logging.debug(msg)
-        self.state = next_state
+        self._state = next_state
 
     def validate_end(self):
         """
         Raise an exception if the last chunk seen was not IEND.
         """
-        if self.state is not ChunkOrderState.after_trailer:
+        if self._state is not _ChunkOrderState.after_trailer:
             raise PNGSyntaxError('Missing IEND')
 
 
-class ChunkCountValidator(object):
+class _ChunkCountValidator(object):
     def __init__(self):
         self._nseen = collections.Counter()
-        self._multiple_allowed = code_frozenset({
+        self._multiple_allowed = _code_frozenset({
             models.IMAGE_DATA,
             models.SUGGESTED_PALETTE,
             models.INTERNATIONAL_TEXTUAL_DATA,
@@ -211,7 +211,7 @@ class ChunkCountValidator(object):
         seen_and_multiple_disallowed = (
             self._nseen[chunk_code] >= 1 and
             chunk_code not in self._multiple_allowed and
-            chunk_code in KNOWN_CHUNKS
+            chunk_code in _KNOWN_CHUNKS
         )
         if seen_and_multiple_disallowed:
             fmt = 'More than one {code} chunk seen, but at most one allowed'
@@ -219,7 +219,7 @@ class ChunkCountValidator(object):
         self._nseen[chunk_code] += 1
 
 
-class ChunkOrderStateTransitionMap(collections.abc.Mapping):
+class _ChunkOrderStateTransitionMap(collections.abc.Mapping):
     """
     Mapping for state transitions in :class:`ChunkOrderParser`.
 
@@ -239,8 +239,8 @@ class ChunkOrderStateTransitionMap(collections.abc.Mapping):
             raise ValueError('Chunk code {code} already in mapping'.format(
                 code=chunk_code
             ))
-        if not isinstance(next_state, ChunkOrderState):
-            fmt = 'Next state must be ChunkOrderState, not {type}'
+        if not isinstance(next_state, _ChunkOrderState):
+            fmt = 'Next state must be _ChunkOrderState, not {type}'
             raise TypeError(fmt.format(type=type(next_state)))
         if not isinstance(chunk_code, bytes):
             raise TypeError('Chunk code must be bytes, not {type}'.format(
@@ -262,7 +262,7 @@ class ChunkOrderStateTransitionMap(collections.abc.Mapping):
         except KeyError:
             if (self._unknown_chunk_next_state is None
                     # Ensure we don't allow unwanted state transitions
-                    or key in KNOWN_CHUNKS):
+                    or key in _KNOWN_CHUNKS):
                 raise
             return self._unknown_chunk_next_state
 

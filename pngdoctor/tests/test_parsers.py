@@ -63,8 +63,8 @@ class TestChunkOrderParser(object):
 
 @pytest.fixture
 def chunk_count_validator():
-    from pngdoctor.parsers import ChunkCountValidator
-    return ChunkCountValidator()
+    from pngdoctor.parsers import _ChunkCountValidator
+    return _ChunkCountValidator()
 
 
 class TestChunkCountValidator:
@@ -92,4 +92,4 @@ class TestChunkCountValidator:
             chunk_count_validator.check(chunk_code)
 
 
-# TODO: Add tests for ChunkOrderStateTransitionMap
+# TODO: Add tests for _ChunkOrderStateTransitionMap
