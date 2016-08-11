@@ -114,6 +114,12 @@ class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
     :ivar data: The bytes from this portion of the chunk
     :type data: bytes
     """
+    def __repr__(self):
+        return '{name}(head={head!r}, data_length={length})'.format(
+            name=self.__class__.__name__,
+            head=self.head,
+            length=len(self.data),
+        )
 
 
 class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
