@@ -208,8 +208,12 @@ class ChunkCountValidator(object):
         })
 
     def check(self, chunk_code):
-        if (self._nseen[chunk_code] > 1 and
-                chunk_code not in self._multiple_allowed):
+        seen_and_multiple_disallowed = (
+            self._nseen[chunk_code] >= 1 and
+            chunk_code not in self._multiple_allowed and
+            chunk_code in KNOWN_CHUNKS
+        )
+        if seen_and_multiple_disallowed:
             fmt = 'More than one {code} chunk seen, but at most one allowed'
             raise PNGSyntaxError(fmt.format(code=chunk_code.decode('ascii')))
         self._nseen[chunk_code] += 1

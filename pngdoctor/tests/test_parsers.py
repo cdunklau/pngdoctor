@@ -59,3 +59,37 @@ class TestChunkOrderParser(object):
         for chunk_code in chunk_codes:
             chunk_order_parser.validate(chunk_code)
         chunk_order_parser.validate_end()
+
+
+@pytest.fixture
+def chunk_count_validator():
+    from pngdoctor.parsers import ChunkCountValidator
+    return ChunkCountValidator()
+
+
+class TestChunkCountValidator:
+    @pytest.mark.parametrize('chunk_code', [
+        b'IDAT', b'sPLT', b'iTXt', b'tEXt', b'zTXt',
+        # Unknown chunks must be allowed multiple times
+        b'ukwn',
+    ])
+    def test_multiple_allowed(self, chunk_code, chunk_count_validator):
+        chunk_count_validator.check(chunk_code)
+        chunk_count_validator.check(chunk_code)
+        chunk_count_validator.check(chunk_code)
+
+
+    @pytest.mark.parametrize('chunk_code', [
+        b'IHDR', b'PLTE', b'IEND',
+        b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB',
+        b'bKGD', b'hIST', b'tRNS', b'pHYs', b'tIME',
+    ])
+    def test_error_on_nomultiple_allowed(self, chunk_code,
+                                         chunk_count_validator):
+        from pngdoctor.exceptions import PNGSyntaxError
+        chunk_count_validator.check(chunk_code)
+        with pytest.raises(PNGSyntaxError):
+            chunk_count_validator.check(chunk_code)
+
+
+# TODO: Add tests for ChunkOrderStateTransitionMap
