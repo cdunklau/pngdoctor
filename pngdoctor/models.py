@@ -42,13 +42,13 @@ class PNGChunkType(namedtuple('_ChunkType', ['code'])):
 # Standard PNG chunk names and type codes
 # Names are taken from the headers of the PNG 1.2 spec in section 4.
 
-## Critical chunks
+# Critical chunks
 IMAGE_HEADER = PNGChunkType(b'IHDR')
 PALETTE = PNGChunkType(b'PLTE')
 IMAGE_DATA = PNGChunkType(b'IDAT')
 IMAGE_TRAILER = PNGChunkType(b'IEND')
 
-## Ancillary chunks
+# Ancillary chunks
 TRANSPARENCY = PNGChunkType(b'tRNS')
 # Color space information
 IMAGE_GAMMA = PNGChunkType(b'gAMA')
@@ -206,7 +206,7 @@ class UnknownPNGChunk(AbstractPNGChunk):
         return ''
 
 
-### Critical Chunks
+# Critical Chunks
 
 # Fields are width, height, bit depth, color type, compression method,
 # filter method, and interlace method
@@ -348,9 +348,9 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
                 interlace_method_int
             )
         except ValueError:
-            exc = PNGSyntaxError(
-                "Invalid IHDR interlace method {0}".format(interlace_method_int)
-            )
+            exc = PNGSyntaxError("Invalid IHDR interlace method {0}".format(
+                interlace_method_int
+            ))
             raise exc from None
 
     def _validate_dependencies(self):
@@ -364,7 +364,6 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
                 typeint=self.color_type.value,
                 type=self.color_type.name
             ))
-
 
 
 @chunk
@@ -426,7 +425,7 @@ class ImageTrailerPNGChunk(AbstractPNGChunk):
         return ''
 
 
-### Ancillary Chunks
+# Ancillary Chunks
 
 # Printable Latin-1, without non-breaking space
 TEXTUAL_KEYWORD_ALLOWED_BYTES = frozenset(
@@ -473,5 +472,3 @@ class PNGImageTextualData(AbstractPNGChunk):
 # TODO: Implement zTXt
 
 # TODO: Implement iTXt
-
-

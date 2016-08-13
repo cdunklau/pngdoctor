@@ -6,7 +6,6 @@ import zlib
 import pytest
 
 
-
 class PNGChunkFake:
     def __init__(self, type_, data):
         self.type = type_
@@ -34,7 +33,7 @@ class PNGChunkFake:
 
 def test_pngchunkfake_crc32():
     expected = 0xcbf43926.to_bytes(4, "big")
-    actual = PNGChunkFake(b'1234', b'56789').crc32_bytes 
+    actual = PNGChunkFake(b'1234', b'56789').crc32_bytes
     assert actual == expected
 
 

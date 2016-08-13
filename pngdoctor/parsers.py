@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 #         tEXt    Yes     None
 #         zTXt    Yes     None
 
+
 def _code_frozenset(chunk_types):
     """
     Return a `frozenset` instance with the type codes from the

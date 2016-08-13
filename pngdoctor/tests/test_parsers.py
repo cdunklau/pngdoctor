@@ -18,7 +18,6 @@ class TestChunkOrderParser(object):
             chunk_order_parser.validate(chunk_code)
         chunk_order_parser.validate_end()
 
-
     @pytest.mark.parametrize('chunk_codes', [
         [b'IHDR', b'IDAT', b'IEND', b'IDAT'],
         [b'IHDR', b'PLTE', b'IEND'],
@@ -32,13 +31,11 @@ class TestChunkOrderParser(object):
         with pytest.raises(PNGSyntaxError):
             chunk_order_parser.validate(chunk_codes[-1])
 
-
     def test_validate_header_must_be_first(self, chunk_order_parser):
         from pngdoctor.exceptions import PNGSyntaxError
         chunk_code = b'PLTE'
         with pytest.raises(PNGSyntaxError):
             chunk_order_parser.validate(chunk_code)
-
 
     def test_validate_end_errors_when_not_finished(self, chunk_order_parser):
         from pngdoctor.exceptions import PNGSyntaxError
@@ -46,7 +43,6 @@ class TestChunkOrderParser(object):
             chunk_order_parser.validate(chunk_code)
         with pytest.raises(PNGSyntaxError):
             chunk_order_parser.validate_end()
-
 
     @pytest.mark.parametrize('chunk_codes', [
         [b'IHDR', b'ukwn', b'PLTE', b'IDAT', b'IEND'],
@@ -78,7 +74,6 @@ class TestChunkCountValidator:
         chunk_count_validator.check(chunk_code)
         chunk_count_validator.check(chunk_code)
 
-
     @pytest.mark.parametrize('chunk_code', [
         b'IHDR', b'PLTE', b'IEND',
         b'cHRM', b'gAMA', b'iCCP', b'sBIT', b'sRGB',
@@ -90,6 +85,5 @@ class TestChunkCountValidator:
         chunk_count_validator.check(chunk_code)
         with pytest.raises(PNGSyntaxError):
             chunk_count_validator.check(chunk_code)
-
 
 # TODO: Add tests for _ChunkOrderStateTransitionMap

@@ -1,7 +1,5 @@
-import inspect
 import struct
 import zlib
-from collections import Counter
 
 from pngdoctor import exceptions as exc
 from pngdoctor import models
@@ -157,7 +155,7 @@ class PNGChunkTokenStream(object):
             raise exc.StreamStateError(
                 "Incorrect chunk state for ending data"
             )
-        
+
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self._chunk_state.crc32
         rval = models.PNGChunkEndToken(self._chunk_state.head, crc32okay)
