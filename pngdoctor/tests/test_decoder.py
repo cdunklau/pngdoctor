@@ -84,7 +84,24 @@ def chunk_token_stream_with_bytes(stream_bytes):
     return PNGChunkTokenStream(io.BytesIO(stream_bytes))
 
 
-@pytest.mark.skip('Need to completely rewrite these')
+def chunk_tokens_from_fakes(chunk_fakes):
+    # This does not allow for multiple data tokens or bad CRC
+    from pngdoctor.decoder import PNG_SIGNATURE
+    from pngdoctor.models import (
+        PNGChunkHeadToken, PNGChunkDataPartToken, PNGChunkEndToken
+    )
+    tokens = []
+    position = 1 + len(PNG_SIGNATURE)
+    for fake in chunk_fakes:
+        head_token = PNGChunkHeadToken(fake.length, fake.type, position)
+        tokens.append(head_token)
+        if fake.data:
+            tokens.append(PNGChunkDataPartToken(head_token, fake.data))
+        tokens.append(PNGChunkEndToken(head_token, True))
+        position += len(fake.bytes_with_crc32)
+    return tokens
+
+
 class TestPNGChunkTokenStream:
     # TODO: Update these tests to reflect the new implementation and API
     def test_iter(self):
@@ -97,13 +114,16 @@ class TestPNGChunkTokenStream:
             iend.bytes_with_crc32
         ])
         chunk_token_stream = chunk_token_stream_with_bytes(contents)
-        expected_chunks = [
-            (ihdr_one_by_one_rgb24.type, ihdr_one_by_one_rgb24.data),
-            (idat_onepix_4488cc.type, idat_onepix_4488cc.data),
-            (iend.type, iend.data)
-        ]
-        actual_chunks = list(chunk_token_stream)
-        assert actual_chunks == expected_chunks
+
+        expected_tokens = chunk_tokens_from_fakes([
+            ihdr_one_by_one_rgb24,
+            idat_onepix_4488cc,
+            iend
+        ])
+
+        actual_tokens = list(chunk_token_stream)
+
+        assert actual_tokens == expected_tokens
 
     def test_iter_if_IHDR_not_first(self):
         from pngdoctor.decoder import PNG_SIGNATURE
@@ -112,9 +132,8 @@ class TestPNGChunkTokenStream:
         contents = b''.join([PNG_SIGNATURE, iend.bytes_with_crc32])
         chunk_token_stream = chunk_token_stream_with_bytes(contents)
         with pytest.raises(PNGSyntaxError) as excinfo:
-            for chunk in chunk_token_stream:
-                pass
-        assert "First chunk expected to be IHDR" in str(excinfo.value)
+            next(iter(chunk_token_stream))
+        assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
 
     def test_iter_fails_on_EOF_after_IEND(self):
         from pngdoctor.decoder import PNG_SIGNATURE
