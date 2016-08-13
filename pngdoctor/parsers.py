@@ -45,6 +45,10 @@ logger = logging.getLogger(__name__)
 #         zTXt    Yes     None
 
 def _code_frozenset(chunk_types):
+    """
+    Return a `frozenset` instance with the type codes from the
+    :class:`models.PNGChunkType` instances in the input iterable.
+    """
     return frozenset(t.code for t in chunk_types)
 
 
@@ -102,6 +106,15 @@ class _ChunkOrderState(enum.Enum):
 
 
 class ChunkOrderParser(object):
+    """
+    Ensure that the sequence of chunk type codes for a PNG stream is
+    valid according to the PNG 1.2 specification.
+
+    Call :meth:`validate` with each chunk type code (4 bytes) as they
+    appear in the stream. When the stream is complete, call
+    :meth:`validate_end` to ensure the end state was reached.
+
+    """
     def __init__(self):
         self._state = _ChunkOrderState.before_header
         self._counts = _ChunkCountValidator()
@@ -165,10 +178,13 @@ class ChunkOrderParser(object):
             _ChunkOrderState.after_trailer: {},
         }
 
-
         assert set(_ChunkOrderState) == self._transitions.keys()
 
     def validate(self, chunk_code):
+        """
+        Ensure that the chunk type code is valid for the current
+        parser state, and change the state as necessary.
+        """
         msg = 'In state {state}, validating code {code}'.format(
             state=self._state, code=chunk_code
         )
