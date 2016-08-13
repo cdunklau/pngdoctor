@@ -1,3 +1,3 @@
 include *.txt
 # test data
-recursive-include pngdoctor/tests *.png
+recursive-include pngdoctor/tests *.png *.txt
