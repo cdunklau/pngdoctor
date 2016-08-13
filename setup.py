@@ -3,6 +3,12 @@ import os
 from setuptools import setup
 
 
+ver_path = os.path.join(os.path.dirname(__file__), 'pngdoctor', 'version.py')
+with open(ver_path) as ver_file:
+    __version__ = ''
+    exec(compile(ver_file.read(), ver_path, 'exec'))
+
+
 #here = os.path.abspath(os.path.dirname(__file__))
 #with open(os.path.join(here, 'README.txt'), encoding='utf-8') as f:
 #    README = f.read()
@@ -16,7 +22,7 @@ classifiers = []
 
 setup(
     name='pngdoctor',
-    version='0.0',
+    version=__version__,
     # TODO
     description='',
     # TODO
