@@ -1,0 +1,122 @@
+Notes collected from PNG specification version 1.2
+===============================================================================
+
+
+Attribution
+-------------------------------------------------------------------------------
+
+The information in this file was produced by directly copying or indirectly
+interpretating the following document:
+
+    PNG (Portable Network Graphics) Specification, Version 1.2
+
+The full text of the document is available at the following URL:
+
+    http://www.libpng.org/pub/png/spec/1.2/png-1.2-pdg.html
+
+The following copyright notice applies to the specification, and is reproduced
+here to fulfill the obligations of the copyright notice. The copyright holder
+of this software makes no claim of copyright to the information within.
+
+
+Copyright Notice
+-------------------------------------------------------------------------------
+
+Copyright © 1998, 1999 by: Glenn Randers-Pehrson
+
+This specification is a modification of the PNG 1.0 specification. It is being
+provided by the copyright holder under the provisions of the 1996 MIT copyright
+and license:
+
+Copyright © 1996 by: Massachusetts Institute of Technology (MIT)
+
+This W3C specification is being provided by the copyright holders under the
+following license. By obtaining, using and/or copying this specification, you
+agree that you have read, understood, and will comply with the following terms
+and conditions:
+
+Permission to use, copy, and distribute this specification for any purpose and
+without fee or royalty is hereby granted, provided that the full text of this
+NOTICE appears on ALL copies of the specification or portions thereof,
+including modifications, that you make.
+
+THIS SPECIFICATION IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS MAKE NO
+REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE, BUT NOT
+LIMITATION, COPYRIGHT HOLDERS MAKE NO REPRESENTATIONS OR WARRANTIES OF
+MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE
+SPECIFICATION WILL NOT INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS
+OR OTHER RIGHTS. COPYRIGHT HOLDERS WILL BEAR NO LIABILITY FOR ANY USE OF THIS
+SPECIFICATION.
+
+The name and trademarks of copyright holders may NOT be used in advertising or
+publicity pertaining to the specification without specific, written prior
+permission. Title to copyright in this specification and any associated
+documentation will at all times remain with copyright holders. 
+
+
+
+
+
+Chunk Ordering Constraints
+-------------------------------------------------------------------------------
+
+Critical chunks (must appear in this order, except PLTE
+                 is optional):
+
+    Name  Multiple  Ordering constraints
+            OK?
+
+    IHDR    No      Must be first
+    PLTE    No      Before IDAT
+    IDAT    Yes     Multiple IDATs must be consecutive
+    IEND    No      Must be last
+
+Ancillary chunks (need not appear in this order):
+
+    Name  Multiple  Ordering constraints
+            OK?
+
+    cHRM    No      Before PLTE and IDAT
+    gAMA    No      Before PLTE and IDAT
+    iCCP    No      Before PLTE and IDAT
+    sBIT    No      Before PLTE and IDAT
+    sRGB    No      Before PLTE and IDAT
+    bKGD    No      After PLTE; before IDAT
+    hIST    No      After PLTE; before IDAT
+    tRNS    No      After PLTE; before IDAT
+    pHYs    No      Before IDAT
+    sPLT    Yes     Before IDAT
+    tIME    No      None
+    iTXt    Yes     None
+    tEXt    Yes     None
+    zTXt    Yes     None
+
+
+Chunk Data Field Maximum Sizes
+-------------------------------------------------------------------------------
+
+Limited size:
+
+    IHDR  4+4+1+1+1+1+1 == 13 bytes
+    PLTE  3*256 == 768 bytes
+    IEND  0 bytes
+
+    cHRM  4*8 == 32 bytes
+    gAMA  4 bytes
+    sBIT  4 bytes (color type 6)
+    sRGB  1 byte
+    bKGD  6 bytes (color types 2 and 6)
+    hIST  2*256 == 512 bytes
+    tRNS  256 bytes (color type 3, 1 byte for each palette index)
+    pHYs  4+4+1 == 9 bytes
+    tIME  2+1+1+1+1+1 == 7 bytes
+
+Only limited by max chunk data size:
+
+    IDAT  max chunk data length (compressed payload)
+
+    iCCP  max chunk data length (partially compressed payload)
+    sPLT  max chunk data length
+    iTXt  max chunk data length (partially compressed payload)
+    tEXt  max chunk data length
+    zTXt  max chunk data length (partially compressed payload)
