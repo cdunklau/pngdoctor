@@ -197,12 +197,12 @@ class TestPNGChunkTokenStream:
 
     @pytest.mark.skip
     def test__get_chunk_head(self):
-        ...
+        pass
 
     @pytest.mark.skip
     def test__get_chunk_data(self):
-        ...
+        pass
 
     @pytest.mark.skip
     def test__get_chunk_end(self):
-        ...
+        pass
