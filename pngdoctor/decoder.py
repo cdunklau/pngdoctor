@@ -120,7 +120,7 @@ class PNGChunkTokenStream(object):
         if not models.PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(type_code):
             raise exc.PNGSyntaxError(
                 "Invalid type code for chunk at byte {position}".format(
-                    self.start_position,
+                    position=start_position,
                 )
             )
         head = models.PNGChunkHeadToken(length, type_code, start_position)
@@ -183,9 +183,9 @@ class PNGChunkTokenStream(object):
         if length > actual:
             fmt = "Expected to read {length}, got {actual}, total read {total}"
             raise exc.UnexpectedEOF(fmt.format(
-                    length=length,
-                    actual=actual,
-                    total=self.total_bytes_read
+                length=length,
+                actual=actual,
+                total=self.total_bytes_read
             ))
         return data
 

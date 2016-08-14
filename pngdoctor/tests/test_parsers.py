@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name,no-self-use
 import pytest
 
 

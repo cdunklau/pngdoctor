@@ -305,7 +305,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
     def _parse_bit_depth(self, bit_depth):
         if bit_depth not in IHDR_ALLOWED_BIT_DEPTHS:
             raise PNGSyntaxError(
-                "{depth} is not a supported bit depth".format(bit_depth)
+                "{depth} is not a supported bit depth".format(depth=bit_depth)
             )
         self.bit_depth = bit_depth
 
@@ -392,8 +392,8 @@ class PalettePNGChunk(AbstractPNGChunk):
             raise PNGSyntaxError("PLTE palette data is too long.")
 
     def _parse_palette(self):
-        it = iter(self.chunk_data)
-        palette = list(zip(it, it, it))
+        iterator = iter(self.chunk_data)
+        palette = list(zip(iterator, iterator, iterator))
         assert 0 < len(palette) <= 256, \
             "Bad palette size {0}".format(len(palette))
         assert len(palette) == len(self.chunk_data) / 3

@@ -1,3 +1,4 @@
+# pylint: disable=protected-access,no-self-use
 import io
 import re
 import struct
@@ -23,8 +24,8 @@ class PNGChunkFake:
 
     @property
     def bytes(self):
-        b = struct.pack('>I4s', self.length, self.type)
-        return b + self.data
+        length_type = struct.pack('>I4s', self.length, self.type)
+        return length_type + self.data
 
     @property
     def bytes_with_crc32(self):
@@ -123,7 +124,7 @@ class TestPNGChunkTokenStream:
 
         assert actual_tokens == expected_tokens
 
-    def test_iter_if_IHDR_not_first(self):
+    def test_iter_if_ihdr_not_first(self):
         from pngdoctor.decoder import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError
 
@@ -133,7 +134,7 @@ class TestPNGChunkTokenStream:
             next(iter(chunk_token_stream))
         assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
 
-    def test_iter_fails_on_EOF_after_IEND(self):
+    def test_iter_fails_on_eof_after_iend(self):
         from pngdoctor.decoder import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError
 
@@ -145,7 +146,7 @@ class TestPNGChunkTokenStream:
         ])
         chunk_token_stream = chunk_token_stream_with_bytes(contents)
         with pytest.raises(PNGSyntaxError) as excinfo:
-            for chunk in chunk_token_stream:
+            for _ in chunk_token_stream:
                 pass
         assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
 
