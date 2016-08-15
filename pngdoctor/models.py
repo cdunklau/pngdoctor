@@ -169,3 +169,19 @@ class FilterMethod(enum.Enum):
 class InterlaceMethod(enum.Enum):
     none = 0
     adam7 = 1
+
+
+@attr.attributes
+class ImageHeader:
+    width = attr.attr()
+    height = attr.attr()
+    bit_depth = attr.attr()
+    color_type = attr.attr()
+    compression_method = attr.attr()
+    filter_method = attr.attr()
+    interlace_method = attr.attr()
+
+
+@attr.attributes
+class Palette:
+    entries = attr.attr()

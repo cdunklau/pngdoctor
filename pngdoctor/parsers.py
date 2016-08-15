@@ -393,7 +393,15 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
             'interlace method',
             interlace_method
         )
-        # TODO: return a thing
+        return models.ImageHeader(
+            width,
+            height,
+            bit_depth,
+            color_type,
+            compression_method,
+            filter_method,
+            interlace_method
+        )
 
     def _validate_length(self):
         if len(self.chunk_data) != self._FIELD_STRUCT.size:
@@ -438,11 +446,14 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
     chunk_type = models.PALETTE
     max_data_size = 3 * 256  # 3 bytes per palette entry, max 256 entries
 
+    _PROHIBITED_WITH_COLOR_TYPE = (
+        models.ColorType.grayscale, models.ColorType.grayscale_alpha
+    )
+
     def parse(self):
         self._validate_length()
-        # pylint: disable=unused-variable
-        rgb_tuples = self._parse_palette()
-        # TODO: return a thing
+        self._validate_palette_chunk_allowed()
+        return models.Palette(self._parse_palette())
 
     def _validate_length(self):
         length = len(self.chunk_data)
@@ -454,6 +465,12 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
             )
         if length // 3 > 256:
             raise PNGSyntaxError("PLTE palette data is too long.")
+
+    def _validate_palette_chunk_allowed(self):
+        color_type = self.antecedent.image_header.color_type
+        if color_type in self._PROHIBITED_WITH_COLOR_TYPE:
+            fmt = 'PLTE chunk not permitted with color type {color_type}'
+            raise PNGSyntaxError(fmt.format(color_type=color_type))
 
     def _parse_palette(self):
         iterator = iter(self.chunk_data)
