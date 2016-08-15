@@ -15,7 +15,9 @@ with open(ver_path) as ver_file:
 #with open(os.path.join(here, 'CHANGES.txt'), encoding='utf-8') as f:
 #    CHANGES = f.read()
 
-requires = []
+requires = [
+    'attrs',
+]
 
 # TODO
 classifiers = [] 

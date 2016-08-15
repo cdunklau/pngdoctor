@@ -2,7 +2,8 @@ import abc
 import enum
 import itertools
 import struct
-from collections import namedtuple
+
+import attr
 
 from pngdoctor.exceptions import PNGSyntaxError
 
@@ -12,30 +13,39 @@ PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES = frozenset(
     itertools.chain(range(65, 91), range(97, 123)))
 
 
-class PNGChunkType(namedtuple('_ChunkType', ['code'])):
-    def __new__(cls, code):
-        if not isinstance(code, bytes):
-            raise TypeError("Argument 'code' must be bytes")
-        if len(code) != 4:
-            raise ValueError("'code' must be exactly 4 bytes long")
-        if not PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(code):
-            raise ValueError("'code' contains invalid bytes")
-        return super(PNGChunkType, cls).__new__(cls, code)
+_valid_bytes = attr.validators.instance_of(bytes)
+
+
+def _valid_chunk_type_code(instance, attribute, value):
+    _valid_bytes(instance, attribute, value)
+    if len(value) != 4:
+        raise ValueError("{!r} must be exactly 4 bytes long".format(attribute))
+    if not PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(value):
+        raise ValueError("{!r} contains invalid bytes".format(attribute))
+
+
+@attr.attributes
+class PNGChunkType:
+    code = attr.attr(validator=_valid_chunk_type_code)
 
     @property
     def ancillary(self):
+        # pylint: disable=unsubscriptable-object
         return bool(self.code[0] & PNG_CHUNK_TYPE_PROPERTY_BITMASK)
 
     @property
     def private(self):
+        # pylint: disable=unsubscriptable-object
         return bool(self.code[1] & PNG_CHUNK_TYPE_PROPERTY_BITMASK)
 
     @property
     def reserved(self):
+        # pylint: disable=unsubscriptable-object
         return bool(self.code[2] & PNG_CHUNK_TYPE_PROPERTY_BITMASK)
 
     @property
     def safe_to_copy(self):
+        # pylint: disable=unsubscriptable-object
         return bool(self.code[3] & PNG_CHUNK_TYPE_PROPERTY_BITMASK)
 
 
@@ -92,7 +102,8 @@ CODE_TYPES = {
 }
 
 
-class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
+@attr.attributes
+class PNGChunkHeadToken:
     """
     The start of a PNG chunk.
 
@@ -103,9 +114,13 @@ class PNGChunkHeadToken(namedtuple('_Head', ['length', 'code', 'position'])):
     :ivar position: Where the chunk started in the stream
     :type position: int
     """
+    length = attr.attr()
+    code = attr.attr()
+    position = attr.attr()
 
 
-class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
+@attr.attributes
+class PNGChunkDataPartToken:
     """
     A portion (or all) of the data from a PNG chunk.
 
@@ -114,6 +129,9 @@ class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
     :ivar data: The bytes from this portion of the chunk
     :type data: bytes
     """
+    head = attr.attr()
+    data = attr.attr()
+
     def __repr__(self):
         return '{name}(head={head!r}, data_length={length})'.format(
             name=self.__class__.__name__,
@@ -122,7 +140,8 @@ class PNGChunkDataPartToken(namedtuple('_DataPart', ['head', 'data'])):
         )
 
 
-class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
+@attr.attributes
+class PNGChunkEndToken:
     """
     The end marker for a PNG chunk.
 
@@ -131,6 +150,8 @@ class PNGChunkEndToken(namedtuple('_End', ['head', 'crc32ok'])):
     :ivar crc32ok: If the CRC32 checksum validated properly
     :type crc32ok: bool
     """
+    head = attr.attr()
+    crc32ok = attr.attr()
 
 
 PNG_MAX_HEIGHT = PNG_MAX_WIDTH = 2**31 - 1
