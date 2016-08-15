@@ -150,7 +150,7 @@ class ChunkEndToken:
     crc32ok = attr.attr()
 
 
-class ImageHeaderColorType(enum.Enum):
+class ColorType(enum.Enum):
     grayscale = 0
     rgb = 2
     palette = 3
@@ -162,10 +162,10 @@ class CompressionMethod(enum.Enum):
     deflate32k = 0
 
 
-class ImageHeaderFilterMethod(enum.Enum):
+class FilterMethod(enum.Enum):
     adaptive_five_basic = 0
 
 
-class ImageHeaderInterlaceMethod(enum.Enum):
+class InterlaceMethod(enum.Enum):
     none = 0
     adam7 = 1

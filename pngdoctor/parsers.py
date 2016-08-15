@@ -363,11 +363,11 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
 
     _ALLOWED_BIT_DEPTHS = frozenset([1, 2, 4, 8, 16])
     _COLOR_TYPE_BIT_DEPTHS = MappingProxyType({
-        models.ImageHeaderColorType.grayscale: frozenset([1, 2, 4, 8, 16]),
-        models.ImageHeaderColorType.rgb: frozenset([8, 16]),
-        models.ImageHeaderColorType.palette: frozenset([1, 2, 4, 8]),
-        models.ImageHeaderColorType.grayscale_alpha: frozenset([8, 16]),
-        models.ImageHeaderColorType.rgb_alpha: frozenset([8, 16]),
+        models.ColorType.grayscale: frozenset([1, 2, 4, 8, 16]),
+        models.ColorType.rgb: frozenset([8, 16]),
+        models.ColorType.palette: frozenset([1, 2, 4, 8]),
+        models.ColorType.grayscale_alpha: frozenset([8, 16]),
+        models.ColorType.rgb_alpha: frozenset([8, 16]),
     })
 
     def parse(self):
@@ -381,15 +381,15 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
         self._validate_bit_depth(bit_depth)
 
         color_type = self._parse_value_to_enum_member(
-            models.ImageHeaderColorType, 'color type', color_type)
+            models.ColorType, 'color type', color_type)
         self._validate_bit_depth_allowed_with_color_type(bit_depth, color_type)
 
         compression_method = self._parse_value_to_enum_member(
             models.CompressionMethod, 'compression method', compression_method)
         filter_method = self._parse_value_to_enum_member(
-            models.ImageHeaderFilterMethod, 'filter method', filter_method)
+            models.FilterMethod, 'filter method', filter_method)
         interlace_method = self._parse_value_to_enum_member(
-            models.ImageHeaderInterlaceMethod,
+            models.InterlaceMethod,
             'interlace method',
             interlace_method
         )
