@@ -210,39 +210,37 @@ class UnknownPNGChunk(AbstractPNGChunk):
 
 # Fields are width, height, bit depth, color type, compression method,
 # filter method, and interlace method
-IHDR_FIELD_STRUCT = struct.Struct('>IIBBBBB')
+IMAGE_HEADER_FIELD_STRUCT = struct.Struct('>IIBBBBB')
 # Field definitions
-IHDR_ALLOWED_BIT_DEPTHS = set([1, 2, 4, 8, 16])
+IMAGE_HEADER_ALLOWED_BIT_DEPTHS = set([1, 2, 4, 8, 16])
 
 
-class IHDRColorType(enum.Enum):
+class ImageHeaderColorType(enum.Enum):
     grayscale = 0
     rgb = 2
     palette = 3
     grayscale_alpha = 4
     rgb_alpha = 6
 
-    def allows_bit_depth(self, bit_depth):
-        return bit_depth in IHDRColorTypeAllowedBitDepth[self.name].value
+
+IMAGE_HEADER_COLOR_TYPE_ALLOWS_BIT_DEPTHS = {
+    ImageHeaderColorType.grayscale: frozenset([1, 2, 4, 8, 16]),
+    ImageHeaderColorType.rgb: frozenset([8, 16]),
+    ImageHeaderColorType.palette: frozenset([1, 2, 4, 8]),
+    ImageHeaderColorType.grayscale_alpha: frozenset([8, 16]),
+    ImageHeaderColorType.rgb_alpha: frozenset([8, 16]),
+}
 
 
-class IHDRColorTypeAllowedBitDepth(enum.Enum):
-    grayscale = frozenset([1, 2, 4, 8, 16])
-    rgb = frozenset([8, 16])
-    palette = frozenset([1, 2, 4, 8])
-    grayscale_alpha = frozenset([8, 16])
-    rgb_alpha = frozenset([8, 16])
-
-
-class IHDRCompressionMethod(enum.Enum):
+class ImageHeaderCompressionMethod(enum.Enum):
     deflate32k = 0
 
 
-class IHDRFilterMethod(enum.Enum):
+class ImageHeaderFilterMethod(enum.Enum):
     adaptive_five_basic = 0
 
 
-class IHDRInterlaceMethod(enum.Enum):
+class ImageHeaderInterlaceMethod(enum.Enum):
     none = 0
     adam7 = 1
 
@@ -264,7 +262,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
         (
             width, height, bit_depth, color_type, compression_method,
             filter_method, interlace_method
-        ) = IHDR_FIELD_STRUCT.unpack(self.chunk_data)
+        ) = IMAGE_HEADER_FIELD_STRUCT.unpack(self.chunk_data)
         self._parse_width_and_height(width, height)
         self._parse_bit_depth(bit_depth)
         self._parse_color_type(color_type)
@@ -284,14 +282,14 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
         )
 
     def _validate_length(self):
-        if len(self.chunk_data) != IHDR_FIELD_STRUCT.size:
+        if len(self.chunk_data) != IMAGE_HEADER_FIELD_STRUCT.size:
             fmt = (
                 "Invalid length for IHDR chunk data, got {actual}, "
                 "expected {expected}."
             )
             raise PNGSyntaxError(fmt.format(
                 actual=len(self.chunk_data),
-                expected=IHDR_FIELD_STRUCT.size
+                expected=IMAGE_HEADER_FIELD_STRUCT.size
             ))
 
     def _parse_width_and_height(self, width, height):
@@ -303,7 +301,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
         self.height = height
 
     def _parse_bit_depth(self, bit_depth):
-        if bit_depth not in IHDR_ALLOWED_BIT_DEPTHS:
+        if bit_depth not in IMAGE_HEADER_ALLOWED_BIT_DEPTHS:
             raise PNGSyntaxError(
                 "{depth} is not a supported bit depth".format(depth=bit_depth)
             )
@@ -311,7 +309,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
 
     def _parse_color_type(self, color_type_int):
         try:
-            self.color_type = IHDRColorType(color_type_int)
+            self.color_type = ImageHeaderColorType(color_type_int)
         except ValueError:
             exc = PNGSyntaxError("Invalid IHDR color type {type}".format(
                 type=color_type_int
@@ -320,7 +318,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
 
     def _parse_compression_method(self, compression_method_int):
         try:
-            self.compression_method = IHDRCompressionMethod(
+            self.compression_method = ImageHeaderCompressionMethod(
                 compression_method_int
             )
         except ValueError:
@@ -333,7 +331,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
 
     def _parse_filter_method(self, filter_method_int):
         try:
-            self.filter_method = IHDRFilterMethod(
+            self.filter_method = ImageHeaderFilterMethod(
                 filter_method_int
             )
         except ValueError:
@@ -344,7 +342,7 @@ class ImageHeaderPNGChunk(AbstractPNGChunk):
 
     def _parse_interlace_method(self, interlace_method_int):
         try:
-            self.interlace_method = IHDRInterlaceMethod(
+            self.interlace_method = ImageHeaderInterlaceMethod(
                 interlace_method_int
             )
         except ValueError:
