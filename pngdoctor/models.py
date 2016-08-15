@@ -150,16 +150,7 @@ class PNGChunkEndToken:
     crc32ok = attr.attr()
 
 
-class _FieldValueEnum(enum.Enum):
-    @classmethod
-    def from_value_or_none(cls, value):
-        """
-        Return the member corresponding to the provided value, or None
-        if the value is not a member.
-        """
-
-
-class ImageHeaderColorType(_FieldValueEnum):
+class ImageHeaderColorType(enum.Enum):
     grayscale = 0
     rgb = 2
     palette = 3
@@ -167,14 +158,14 @@ class ImageHeaderColorType(_FieldValueEnum):
     rgb_alpha = 6
 
 
-class CompressionMethod(_FieldValueEnum):
+class CompressionMethod(enum.Enum):
     deflate32k = 0
 
 
-class ImageHeaderFilterMethod(_FieldValueEnum):
+class ImageHeaderFilterMethod(enum.Enum):
     adaptive_five_basic = 0
 
 
-class ImageHeaderInterlaceMethod(_FieldValueEnum):
+class ImageHeaderInterlaceMethod(enum.Enum):
     none = 0
     adam7 = 1
