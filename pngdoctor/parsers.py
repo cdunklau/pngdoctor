@@ -337,22 +337,25 @@ class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
 
 
 
-# Map of chunk type code -> chunk class
-_chunk_parser_registry = {}
+class _ChunkParserRegistry:
+    def __init__(self):
+        self._store = {}
+
+    def register(self, chunk_parser_class):
+        code = chunk_parser_class.chunk_type.code
+        if code in self._store:
+            raise RuntimeError(
+                "Parser for chunk {code} already registered".format(code=code)
+            )
+        self._store[code] = chunk_parser_class
+        return chunk_parser_class
 
 
-def _chunk_parser(cls):
-    code = cls.chunk_type.code
-    if code in _chunk_parser_registry:
-        raise RuntimeError("Parser for chunk {code} already registered".format(
-            code=code
-        ))
-    _chunk_parser_registry[code] = cls
-    return cls
+_chunk_parsers = _ChunkParserRegistry()
 
 
 # Critical Chunks
-@_chunk_parser
+@_chunk_parsers.register
 class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
     # Fields are width, height, bit depth, color type, compression method,
     # filter method, and interlace method
@@ -441,7 +444,7 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
             ))
 
 
-@_chunk_parser
+@_chunk_parsers.register
 class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
     chunk_type = models.PALETTE
     max_data_size = 3 * 256  # 3 bytes per palette entry, max 256 entries
@@ -483,7 +486,7 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
 
 
 
-@_chunk_parser
+@_chunk_parsers.register
 class _ImageTrailerChunkParser(_AbstractLimitedLengthChunkParser):
     chunk_type = models.IMAGE_TRAILER
     max_data_size = 0
@@ -501,7 +504,7 @@ TEXTUAL_KEYWORD_ALLOWED_BYTES = frozenset(
 
 
 # TODO: Update this and register it once the ABC has been defined
-#@_chunk_parser
+#@_chunk_parsers.register
 class _TextualDataParser(_AbstractIterativeChunkParser):
     chunk_type = models.TEXTUAL_DATA
 
