@@ -1,7 +1,11 @@
+import abc
 import collections
 import collections.abc
 import enum
+import itertools
 import logging
+import struct
+from types import MappingProxyType
 
 from pngdoctor.exceptions import PNGSyntaxError
 from pngdoctor import models
@@ -257,4 +261,258 @@ class _ChunkOrderStateTransitionMap(collections.abc.Mapping):
 
 
 
-# ref png-specification-notes.txt
+class _ParseAnecedent:
+    """
+    The ongoing results of the parse.
+    """
+
+
+
+PNG_MAX_HEIGHT = PNG_MAX_WIDTH = 2**31 - 1
+PNG_MIN_WIDTH = PNG_MIN_HEIGHT = 1
+
+
+PNG_CHUNK_DATA_NOT_SET = object()
+
+
+class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
+    """
+    Abstract parser class for chunks that have a defined maximum
+    data length (at most :data:`decoder.PNG_CHUNK_MAX_DATA_READ`
+    bytes).
+    """
+    def __init__(self, chunk_data, parse_antecedent):
+        self.chunk_data = chunk_data
+        self.antecedent = parse_antecedent
+
+    @abc.abstractproperty
+    def chunk_type(self):
+        """
+        The chunk type, an instance of `PNGChunkType`
+        """
+
+    @abc.abstractproperty
+    def max_data_size(self):
+        """
+        Maximum number of bytes allowed for the chunk's data.
+        """
+
+    @abc.abstractmethod
+    def parse(self):
+        """
+        Parse the chunk data and return the ChunkModel.
+
+        Raise PNGSyntaxError if there was a problem parsing the data.
+        """
+
+    def _parse_value_to_enum_member(self, enumeration, description, value):
+        """
+        Return the enumeration member for the value, or raise
+        :exception:`exceptions.PNGSyntaxError` if the value is not
+        a valid member value.
+        """
+        if value not in enumeration.__members__.values():
+            fmt = "Invalid {description} {value!r} for {code} chunk"
+            raise PNGSyntaxError(fmt.format(
+                description=description,
+                value=value,
+                code=self.chunk_type.code.decode('ascii')
+            ))
+        return enumeration(value)
+
+
+class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
+    # TODO: Define this ABC
+    def __init__(self, chunk_data, parse_antecedent):
+        # TODO: fix this to not have the whole chunk data passed in. Probably
+        # need to have partial data passed into the parsing method.
+        self.chunk_data = chunk_data
+        self.antecedent = parse_antecedent
+
+    @abc.abstractproperty
+    def chunk_type(self):
+        """
+        The chunk type, an instance of `PNGChunkType`
+        """
+
+
+
+# Map of chunk type code -> chunk class
+_chunk_parser_registry = {}
+
+
+def _chunk_parser(cls):
+    code = cls.chunk_type.code
+    if code in _chunk_parser_registry:
+        raise RuntimeError("Parser for chunk {code} already registered".format(
+            code=code
+        ))
+    _chunk_parser_registry[code] = cls
+    return cls
+
+
+# Critical Chunks
+@_chunk_parser
+class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
+    # Fields are width, height, bit depth, color type, compression method,
+    # filter method, and interlace method
+    _FIELD_STRUCT = struct.Struct('>IIBBBBB')
+
+    chunk_type = models.IMAGE_HEADER
+    max_data_size = _FIELD_STRUCT.size  # 13 bytes
+
+    _ALLOWED_BIT_DEPTHS = frozenset([1, 2, 4, 8, 16])
+    _COLOR_TYPE_BIT_DEPTHS = MappingProxyType({
+        models.ImageHeaderColorType.grayscale: frozenset([1, 2, 4, 8, 16]),
+        models.ImageHeaderColorType.rgb: frozenset([8, 16]),
+        models.ImageHeaderColorType.palette: frozenset([1, 2, 4, 8]),
+        models.ImageHeaderColorType.grayscale_alpha: frozenset([8, 16]),
+        models.ImageHeaderColorType.rgb_alpha: frozenset([8, 16]),
+    })
+
+    def parse(self):
+        self._validate_length()
+        (
+            width, height, bit_depth, color_type, compression_method,
+            filter_method, interlace_method
+        ) = self._FIELD_STRUCT.unpack(self.chunk_data)
+
+        self._validate_width_and_height(width, height)
+        self._validate_bit_depth(bit_depth)
+
+        color_type = self._parse_value_to_enum_member(
+            models.ImageHeaderColorType, 'color type', color_type)
+        self._validate_bit_depth_allowed_with_color_type(bit_depth, color_type)
+
+        compression_method = self._parse_value_to_enum_member(
+            models.CompressionMethod, 'compression method', compression_method)
+        filter_method = self._parse_value_to_enum_member(
+            models.ImageHeaderFilterMethod, 'filter method', filter_method)
+        interlace_method = self._parse_value_to_enum_member(
+            models.ImageHeaderInterlaceMethod,
+            'interlace method',
+            interlace_method
+        )
+        # TODO: return a thing
+
+    def _validate_length(self):
+        if len(self.chunk_data) != self._FIELD_STRUCT.size:
+            fmt = (
+                "Invalid length for IHDR chunk data, got {actual}, "
+                "expected {expected}."
+            )
+            raise PNGSyntaxError(fmt.format(
+                actual=len(self.chunk_data),
+                expected=self._FIELD_STRUCT.size
+            ))
+
+    def _validate_width_and_height(self, width, height):
+        # pylint: disable=no-self-use
+        if width > PNG_MAX_HEIGHT or height > PNG_MAX_HEIGHT:
+            raise PNGSyntaxError("IHDR width or height is too large")
+        if width < PNG_MIN_WIDTH or height < PNG_MIN_WIDTH:
+            raise PNGSyntaxError("IHDR width or height is too small")
+
+    def _validate_bit_depth(self, bit_depth):
+        if bit_depth not in self._ALLOWED_BIT_DEPTHS:
+            raise PNGSyntaxError(
+                "{depth} is not a supported bit depth".format(depth=bit_depth)
+            )
+
+    def _validate_bit_depth_allowed_with_color_type(self, bit_depth,
+                                                    color_type):
+        if bit_depth not in self._COLOR_TYPE_BIT_DEPTHS[color_type]:
+            fmt = (
+                "IHDR bit depth {depth} not supported "
+                "with color type {typeint}:{type}"
+            )
+            raise PNGSyntaxError(fmt.format(
+                depth=bit_depth,
+                typeint=color_type.value,
+                type=color_type.name
+            ))
+
+
+@_chunk_parser
+class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
+    chunk_type = models.PALETTE
+    max_data_size = 3 * 256  # 3 bytes per palette entry, max 256 entries
+
+    def parse(self):
+        self._validate_length()
+        # pylint: disable=unused-variable
+        rgb_tuples = self._parse_palette()
+        # TODO: return a thing
+
+    def _validate_length(self):
+        length = len(self.chunk_data)
+        if length < 3:
+            raise PNGSyntaxError("PLTE palette data is too short.")
+        if length % 3 != 0:
+            raise PNGSyntaxError(
+                "PLTE palette length must be a multiple of 3."
+            )
+        if length // 3 > 256:
+            raise PNGSyntaxError("PLTE palette data is too long.")
+
+    def _parse_palette(self):
+        iterator = iter(self.chunk_data)
+        rgb_tuples = list(zip(iterator, iterator, iterator))
+        # _validate_length is called before this method
+        assert 0 < len(rgb_tuples) <= 256, \
+            "Bad palette size {0}".format(len(rgb_tuples))
+        assert len(rgb_tuples) == len(self.chunk_data) / 3  # true division
+        return rgb_tuples
+
+
+
+@_chunk_parser
+class _ImageTrailerChunkParser(_AbstractLimitedLengthChunkParser):
+    chunk_type = models.IMAGE_TRAILER
+    max_data_size = 0
+
+    def parse(self):
+        if self.chunk_data:
+            raise PNGSyntaxError("IEND chunk must be empty")
+
+
+# Ancillary Chunks
+
+# Printable Latin-1, without non-breaking space
+TEXTUAL_KEYWORD_ALLOWED_BYTES = frozenset(
+    itertools.chain(range(32, 127), range(161, 256)))
+
+
+# TODO: Update this and register it once the ABC has been defined
+#@_chunk_parser
+class _TextualDataParser(_AbstractIterativeChunkParser):
+    chunk_type = models.TEXTUAL_DATA
+
+    def parse(self):
+        # TODO: add validation for rules in Textual Information, section 4.2.3
+        # of the PNG 1.2 spec.
+        components = self.chunk_data.split(b'\x00')
+        if len(components) > 2:
+            raise PNGSyntaxError(
+                "Too many null bytes found in tEXt data."
+            )
+        if len(components) < 2:
+            raise PNGSyntaxError("No null byte found in tEXt data.")
+        keyword, text = components
+        if not 0 < len(keyword) < 80:
+            raise PNGSyntaxError("Invalid length for tEXt keyword.")
+        if keyword.startswith(b' ') or keyword.endswith(b' '):
+            raise PNGSyntaxError(
+                "Forbidden leading or trailing space found in tEXt keyword."
+            )
+        # No consecutive spaces
+        if b'  ' in keyword:
+            raise PNGSyntaxError(
+                "Forbidden consecutive spaces found in tEXt keyword."
+            )
+        keyword = keyword.decode('latin-1')
+        text = text.decode('latin-1')
+
+# TODO: Implement zTXt
+
+# TODO: Implement iTXt
