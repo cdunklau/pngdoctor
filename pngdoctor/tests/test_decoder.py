@@ -7,7 +7,7 @@ import zlib
 import pytest
 
 
-class PNGChunkFake:
+class RawChunkData:
     def __init__(self, type_, data):
         self.type = type_
         self.data = data
@@ -34,11 +34,11 @@ class PNGChunkFake:
 
 def test_pngchunkfake_crc32():
     expected = 0xcbf43926.to_bytes(4, "big")
-    actual = PNGChunkFake(b'1234', b'56789').crc32_bytes
+    actual = RawChunkData(b'1234', b'56789').crc32_bytes
     assert actual == expected
 
 
-ihdr_one_by_one_rgb24 = PNGChunkFake(
+ihdr_one_by_one_rgb24 = RawChunkData(
     b'IHDR',
     struct.pack(
         '>IIBBBBB',
@@ -64,12 +64,12 @@ ihdr_one_by_one_rgb24 = PNGChunkFake(
 # Decompressed zlib data: 00 44 88 CC
 # Filter type 0 (no filtering)
 # Pastel blue #4488cc
-idat_onepix_4488cc = PNGChunkFake(
+idat_onepix_4488cc = RawChunkData(
     b'IDAT',
     b'\x08\xd7\x63\x70\xe9\x38\x03\x00\x02\xac\x01\x99'
 )
 
-iend = PNGChunkFake(b'IEND', b'')
+iend = RawChunkData(b'IEND', b'')
 
 
 def test_signature_correct():
@@ -79,30 +79,30 @@ def test_signature_correct():
 
 
 def chunk_token_stream_with_bytes(stream_bytes):
-    from pngdoctor.decoder import PNGChunkTokenStream
+    from pngdoctor.decoder import ChunkTokenStream
 
-    return PNGChunkTokenStream(io.BytesIO(stream_bytes))
+    return ChunkTokenStream(io.BytesIO(stream_bytes))
 
 
 def chunk_tokens_from_fakes(chunk_fakes):
     # This does not allow for multiple data tokens or bad CRC
     from pngdoctor.decoder import PNG_SIGNATURE
     from pngdoctor.models import (
-        PNGChunkHeadToken, PNGChunkDataPartToken, PNGChunkEndToken
+        ChunkHeadToken, ChunkDataPartToken, ChunkEndToken
     )
     tokens = []
     position = 1 + len(PNG_SIGNATURE)
     for fake in chunk_fakes:
-        head_token = PNGChunkHeadToken(fake.length, fake.type, position)
+        head_token = ChunkHeadToken(fake.length, fake.type, position)
         tokens.append(head_token)
         if fake.data:
-            tokens.append(PNGChunkDataPartToken(head_token, fake.data))
-        tokens.append(PNGChunkEndToken(head_token, True))
+            tokens.append(ChunkDataPartToken(head_token, fake.data))
+        tokens.append(ChunkEndToken(head_token, True))
         position += len(fake.bytes_with_crc32)
     return tokens
 
 
-class TestPNGChunkTokenStream:
+class TestChunkTokenStream:
     def test_iter(self):
         from pngdoctor.decoder import PNG_SIGNATURE
 

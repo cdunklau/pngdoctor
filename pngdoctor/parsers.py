@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _code_frozenset(chunk_types):
     """
     Return a `frozenset` instance with the type codes from the
-    :class:`models.PNGChunkType` instances in the input iterable.
+    :class:`models.ChunkType` instances in the input iterable.
     """
     return frozenset(t.code for t in chunk_types)
 
@@ -288,7 +288,7 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
     @abc.abstractproperty
     def chunk_type(self):
         """
-        The chunk type, an instance of `PNGChunkType`
+        The chunk type, an instance of `ChunkType`
         """
 
     @abc.abstractproperty
@@ -332,7 +332,7 @@ class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
     @abc.abstractproperty
     def chunk_type(self):
         """
-        The chunk type, an instance of `PNGChunkType`
+        The chunk type, an instance of `ChunkType`
         """
 
 

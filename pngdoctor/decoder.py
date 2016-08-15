@@ -23,7 +23,7 @@ PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
 PNG_CHUNK_MAX_DATA_READ = 4 * 2**10  # 4 KiB max chunk data processed
 
 
-class PNGChunkTokenStream(object):
+class ChunkTokenStream(object):
     """
     Produces chunk tokens for processing in the higher levels of the
     decoder.
@@ -51,9 +51,9 @@ class PNGChunkTokenStream(object):
         """
         Process the stream and produce chunk tokens.
 
-        Yields in order one :class:`models.PNGChunkHeadToken` instance,
-        zero or more :class:`models.PNGChunkDataPartToken` instances,
-        then one :class:`models.PNGChunkEndToken` instance, then
+        Yields in order one :class:`models.ChunkHeadToken` instance,
+        zero or more :class:`models.ChunkDataPartToken` instances,
+        then one :class:`models.ChunkEndToken` instance, then
         repeats for the next chunk.
 
         """
@@ -123,8 +123,8 @@ class PNGChunkTokenStream(object):
                     position=start_position,
                 )
             )
-        head = models.PNGChunkHeadToken(length, type_code, start_position)
-        self._chunk_state = _PNGSingleChunkState(head)
+        head = models.ChunkHeadToken(length, type_code, start_position)
+        self._chunk_state = _SingleChunkState(head)
         return head
 
     def _get_chunk_data(self):
@@ -133,7 +133,7 @@ class PNGChunkTokenStream(object):
         amount from :attr:`chunk_state`, update the chunk state, and
         return the chunk data part.
 
-        :rtype: :class:`models.PNGChunkDataPartToken`
+        :rtype: :class:`models.ChunkDataPartToken`
         """
         if self._chunk_state is None or self._chunk_state.next_read == 0:
             raise exc.StreamStateError(
@@ -141,7 +141,7 @@ class PNGChunkTokenStream(object):
             )
         data = self._read(self._chunk_state.next_read)
         self._chunk_state.update(data)
-        return models.PNGChunkDataPartToken(self._chunk_state.head, data)
+        return models.ChunkDataPartToken(self._chunk_state.head, data)
 
     def _get_chunk_end(self):
         """
@@ -149,7 +149,7 @@ class PNGChunkTokenStream(object):
         CRC32 checksum, check if it matches the calculated checksum,
         and wipe the state.
 
-        :rtype: :class:`models.PNGChunkEndToken`
+        :rtype: :class:`models.ChunkEndToken`
         """
         if self._chunk_state is None or self._chunk_state.next_read != 0:
             raise exc.StreamStateError(
@@ -158,7 +158,7 @@ class PNGChunkTokenStream(object):
 
         [declared_crc32] = struct.unpack('>I', self._read(4))
         crc32okay = declared_crc32 == self._chunk_state.crc32
-        rval = models.PNGChunkEndToken(self._chunk_state.head, crc32okay)
+        rval = models.ChunkEndToken(self._chunk_state.head, crc32okay)
         self._chunk_state = None
         return rval
 
@@ -190,7 +190,7 @@ class PNGChunkTokenStream(object):
         return data
 
 
-class _PNGSingleChunkState(object):
+class _SingleChunkState(object):
     """
     Represents the state of processing of a single chunk.
 
@@ -199,15 +199,15 @@ class _PNGSingleChunkState(object):
     :ivar head:
         The chunk's header: total length of the chunk data, type code,
         and the position in the stream where the chunk started
-    :type head: :class:`models.PNGChunkHeadToken`
+    :type head: :class:`models.ChunkHeadToken`
     :ivar data_remaining:
         The number of chunk data bytes not yet processed
     :type data_remaining: int
     :ivar crc32: The running crc32 checksum
     :type crc32: int
     :ivar next_read:
-        The number of bytes for the :class:`PNGChunkStream` to provide
-        to the next call of this instance's `update` method.
+        The number of bytes for the :class:`ChunkTokenStream` to
+        provide to the next call of this instance's `update` method.
     :type next_read: int
 
     """

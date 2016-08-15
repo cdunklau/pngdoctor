@@ -1,12 +1,12 @@
 # pylint: disable=no-self-use
 
 def png_chunk_type(type_name):
-    from pngdoctor.models import PNGChunkType
+    from pngdoctor.models import ChunkType
 
-    return PNGChunkType(type_name)
+    return ChunkType(type_name)
 
 
-class TestPNGChunkType:
+class TestChunkType:
     def test_property_bit(self):
         chunk_type = png_chunk_type(b'bLOb')
         assert chunk_type.ancillary is True

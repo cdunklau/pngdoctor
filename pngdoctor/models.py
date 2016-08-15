@@ -21,7 +21,7 @@ def _valid_chunk_type_code(instance, attribute, value):
 
 
 @attr.attributes
-class PNGChunkType:
+class ChunkType:
     code = attr.attr(validator=_valid_chunk_type_code)
 
     @property
@@ -49,33 +49,33 @@ class PNGChunkType:
 # Names are taken from the headers of the PNG 1.2 spec in section 4.
 
 # Critical chunks
-IMAGE_HEADER = PNGChunkType(b'IHDR')
-PALETTE = PNGChunkType(b'PLTE')
-IMAGE_DATA = PNGChunkType(b'IDAT')
-IMAGE_TRAILER = PNGChunkType(b'IEND')
+IMAGE_HEADER = ChunkType(b'IHDR')
+PALETTE = ChunkType(b'PLTE')
+IMAGE_DATA = ChunkType(b'IDAT')
+IMAGE_TRAILER = ChunkType(b'IEND')
 
 # Ancillary chunks
-TRANSPARENCY = PNGChunkType(b'tRNS')
+TRANSPARENCY = ChunkType(b'tRNS')
 # Color space information
-IMAGE_GAMMA = PNGChunkType(b'gAMA')
-PRIMARY_CHROMATICITIES = PNGChunkType(b'cHRM')
-STANDARD_RGB_COLOR_SPACE = PNGChunkType(b'sRGB')
-EMBEDDED_ICC_PROFILE = PNGChunkType(b'iCCP')
+IMAGE_GAMMA = ChunkType(b'gAMA')
+PRIMARY_CHROMATICITIES = ChunkType(b'cHRM')
+STANDARD_RGB_COLOR_SPACE = ChunkType(b'sRGB')
+EMBEDDED_ICC_PROFILE = ChunkType(b'iCCP')
 
 # Textual information
-TEXTUAL_DATA = PNGChunkType(b'tEXt')
-COMPRESSED_TEXTUAL_DATA = PNGChunkType(b'zTXt')
-INTERNATIONAL_TEXTUAL_DATA = PNGChunkType(b'iTXt')
+TEXTUAL_DATA = ChunkType(b'tEXt')
+COMPRESSED_TEXTUAL_DATA = ChunkType(b'zTXt')
+INTERNATIONAL_TEXTUAL_DATA = ChunkType(b'iTXt')
 
 # Miscellaneous information
-BACKGROUND_COLOR = PNGChunkType(b'bKGD')
-PHYSICAL_PIXEL_DIMENSIONS = PNGChunkType(b'pHYs')
-SIGNIFICANT_BITS = PNGChunkType(b'sBIT')
-SUGGESTED_PALETTE = PNGChunkType(b'sPLT')
-PALETTE_HISTOGRAM = PNGChunkType(b'hIST')
-IMAGE_LAST_MODIFICATION_TIME = PNGChunkType(b'tIME')
+BACKGROUND_COLOR = ChunkType(b'bKGD')
+PHYSICAL_PIXEL_DIMENSIONS = ChunkType(b'pHYs')
+SIGNIFICANT_BITS = ChunkType(b'sBIT')
+SUGGESTED_PALETTE = ChunkType(b'sPLT')
+PALETTE_HISTOGRAM = ChunkType(b'hIST')
+IMAGE_LAST_MODIFICATION_TIME = ChunkType(b'tIME')
 
-# Map of chunk type codes (bytes) to their PNGChunkType instances
+# Map of chunk type codes (bytes) to their ChunkType instances
 CODE_TYPES = {
     IMAGE_HEADER.code: IMAGE_HEADER,
     PALETTE.code: PALETTE,
@@ -99,7 +99,7 @@ CODE_TYPES = {
 
 
 @attr.attributes
-class PNGChunkHeadToken:
+class ChunkHeadToken:
     """
     The start of a PNG chunk.
 
@@ -116,12 +116,12 @@ class PNGChunkHeadToken:
 
 
 @attr.attributes
-class PNGChunkDataPartToken:
+class ChunkDataPartToken:
     """
     A portion (or all) of the data from a PNG chunk.
 
     :ivar head: The head token from this chunk
-    :type head: :class:`PNGChunkHeadToken`
+    :type head: :class:`ChunkHeadToken`
     :ivar data: The bytes from this portion of the chunk
     :type data: bytes
     """
@@ -137,12 +137,12 @@ class PNGChunkDataPartToken:
 
 
 @attr.attributes
-class PNGChunkEndToken:
+class ChunkEndToken:
     """
     The end marker for a PNG chunk.
 
     :ivar head: The head token from this chunk
-    :type head: :class:`PNGChunkHeadToken`
+    :type head: :class:`ChunkHeadToken`
     :ivar crc32ok: If the CRC32 checksum validated properly
     :type crc32ok: bool
     """

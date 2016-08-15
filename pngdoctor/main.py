@@ -1,13 +1,13 @@
 import sys
 import logging
 
-from pngdoctor.decoder import PNGChunkTokenStream
+from pngdoctor.decoder import ChunkTokenStream
 
 logger = logging.getLogger(__name__)
 
 
 def log_chunk_tokens(pngfile):
-    tokenizer = PNGChunkTokenStream(pngfile)
+    tokenizer = ChunkTokenStream(pngfile)
     for token in tokenizer:
         logger.info(repr(token))
 
