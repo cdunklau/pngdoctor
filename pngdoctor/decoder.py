@@ -124,7 +124,7 @@ class ChunkTokenStream(object):
                 )
             )
         head = models.ChunkHeadToken(length, type_code, start_position)
-        self._chunk_state = _SingleChunkState(head)
+        self._chunk_state = _ChunkTokenStreamSingleChunkState(head)
         return head
 
     def _get_chunk_data(self):
@@ -190,9 +190,9 @@ class ChunkTokenStream(object):
         return data
 
 
-class _SingleChunkState(object):
+class _ChunkTokenStreamSingleChunkState(object):
     """
-    Represents the state of processing of a single chunk.
+    Represents the state of processing of a single chunk into tokens.
 
     No attribute may be modified externally.
 
