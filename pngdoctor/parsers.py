@@ -265,6 +265,7 @@ class _ParseAnecedent:
     """
     The ongoing results of the parse.
     """
+    # TODO: Figure out this API
 
 
 
@@ -280,9 +281,15 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
     Abstract parser class for chunks that have a defined maximum
     data length (at most :data:`decoder.PNG_CHUNK_MAX_DATA_READ`
     bytes).
+
+    Implementers will have their ``__init__`` method called with
+    two arguments: the chunk's data token and an instance of
+    :class:`_ParseAnecedent` containing the parse results from the
+    previous chunks.
+
     """
-    def __init__(self, chunk_data, parse_antecedent):
-        self.chunk_data = chunk_data
+    def __init__(self, data_token, parse_antecedent):
+        self.data_token = data_token
         self.antecedent = parse_antecedent
 
     @abc.abstractproperty
@@ -300,9 +307,9 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def parse(self):
         """
-        Parse the chunk data and return the ChunkModel.
-
-        Raise PNGSyntaxError if there was a problem parsing the data.
+        Parse the chunk data and return the ChunkModel, or raise
+        :exception:`exceptions.PNGSyntaxError` if there was a problem
+        parsing the data.
         """
 
     def _parse_value_to_enum_member(self, enumeration, description, value):
@@ -323,10 +330,10 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
 
 class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
     # TODO: Define this ABC
-    def __init__(self, chunk_data, parse_antecedent):
+    def __init__(self, data_token, parse_antecedent):
         # TODO: fix this to not have the whole chunk data passed in. Probably
         # need to have partial data passed into the parsing method.
-        self.chunk_data = chunk_data
+        self.data_token = data_token
         self.antecedent = parse_antecedent
 
     @abc.abstractproperty
@@ -378,7 +385,7 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
         (
             width, height, bit_depth, color_type, compression_method,
             filter_method, interlace_method
-        ) = self._FIELD_STRUCT.unpack(self.chunk_data)
+        ) = self._FIELD_STRUCT.unpack(self.data_token)
 
         self._validate_width_and_height(width, height)
         self._validate_bit_depth(bit_depth)
@@ -407,13 +414,13 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
         )
 
     def _validate_length(self):
-        if len(self.chunk_data) != self._FIELD_STRUCT.size:
+        if len(self.data_token) != self._FIELD_STRUCT.size:
             fmt = (
                 "Invalid length for IHDR chunk data, got {actual}, "
                 "expected {expected}."
             )
             raise PNGSyntaxError(fmt.format(
-                actual=len(self.chunk_data),
+                actual=len(self.data_token),
                 expected=self._FIELD_STRUCT.size
             ))
 
@@ -459,7 +466,7 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
         return models.Palette(self._parse_palette())
 
     def _validate_length(self):
-        length = len(self.chunk_data)
+        length = len(self.data_token)
         if length < 3:
             raise PNGSyntaxError("PLTE palette data is too short.")
         if length % 3 != 0:
@@ -476,12 +483,12 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
             raise PNGSyntaxError(fmt.format(color_type=color_type))
 
     def _parse_palette(self):
-        iterator = iter(self.chunk_data)
+        iterator = iter(self.data_token)
         rgb_tuples = list(zip(iterator, iterator, iterator))
         # _validate_length is called before this method
         assert 0 < len(rgb_tuples) <= 256, \
             "Bad palette size {0}".format(len(rgb_tuples))
-        assert len(rgb_tuples) == len(self.chunk_data) / 3  # true division
+        assert len(rgb_tuples) == len(self.data_token) / 3  # true division
         return rgb_tuples
 
 
@@ -492,7 +499,7 @@ class _ImageTrailerChunkParser(_AbstractLimitedLengthChunkParser):
     max_data_size = 0
 
     def parse(self):
-        if self.chunk_data:
+        if self.data_token:
             raise PNGSyntaxError("IEND chunk must be empty")
 
 
@@ -511,7 +518,7 @@ class _TextualDataParser(_AbstractIterativeChunkParser):
     def parse(self):
         # TODO: add validation for rules in Textual Information, section 4.2.3
         # of the PNG 1.2 spec.
-        components = self.chunk_data.split(b'\x00')
+        components = self.data_token.split(b'\x00')
         if len(components) > 2:
             raise PNGSyntaxError(
                 "Too many null bytes found in tEXt data."
