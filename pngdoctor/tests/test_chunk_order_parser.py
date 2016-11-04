@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def chunk_order_parser():
-    from pngdoctor.parsers import ChunkOrderParser
+    from pngdoctor.chunk_order_parser import ChunkOrderParser
     return ChunkOrderParser()
 
 
@@ -67,7 +67,7 @@ class TestChunkOrderParser(object):
 
 @pytest.fixture
 def chunk_count_validator():
-    from pngdoctor.parsers import _ChunkCountValidator
+    from pngdoctor.chunk_order_parser import _ChunkCountValidator
     return _ChunkCountValidator()
 
 

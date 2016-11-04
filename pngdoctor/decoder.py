@@ -3,7 +3,7 @@ import zlib
 
 from pngdoctor import exceptions as exc
 from pngdoctor import models
-from pngdoctor import parsers
+from pngdoctor.chunk_order_parser import ChunkOrderParser
 
 
 PNG_SIGNATURE = bytes([
@@ -45,7 +45,7 @@ class ChunkTokenStream(object):
         self._stream = stream
         self.total_bytes_read = 0
         self._chunk_state = None
-        self.order_validator = parsers.ChunkOrderParser()
+        self.order_validator = ChunkOrderParser()
 
     def __iter__(self):
         """
@@ -124,7 +124,7 @@ class ChunkTokenStream(object):
                 )
             )
         head = models.ChunkHeadToken(length, type_code, start_position)
-        self._chunk_state = _ChunkTokenStreamSingleChunkState(head)
+        self._chunk_state = _SingleChunkState(head)
         return head
 
     def _get_chunk_data(self):
@@ -190,7 +190,7 @@ class ChunkTokenStream(object):
         return data
 
 
-class _ChunkTokenStreamSingleChunkState(object):
+class _SingleChunkState(object):
     """
     Represents the state of processing of a single chunk into tokens.
 
