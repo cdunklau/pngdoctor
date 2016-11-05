@@ -24,3 +24,15 @@ class PNGSyntaxError(DecodeError):
 
 class PNGTooLarge(DecodeError):
     pass
+
+
+class DecompressionNotFinished(DecodeError):
+    pass
+
+
+class DecompressionFinishedEarly(DecodeError):
+    pass
+
+
+class UnsupportedField(DecodeError):
+    pass
