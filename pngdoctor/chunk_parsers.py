@@ -231,6 +231,21 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
             )
         if length // 3 > 256:
             raise PNGSyntaxError("PLTE palette data is too long.")
+        if (
+                self.antecedent.image_header.color_type is
+                fieldvalues.ColorType.indexed
+            ):
+            maximum_size = (2 ** self.antecedent.image_header.bit_depth) * 3
+            if length > maximum_size:
+                msg = (
+                    "Palette length {length} larger than maximum {max} for "
+                    "bit depth {depth}"
+                )
+                raise PNGSyntaxError(msg.format(
+                    length=length,
+                    max=maximum_size,
+                    depth=self.antecedent.image_header.bit_depth
+                ))
 
     def _validate_palette_chunk_allowed(self):
         color_type = self.antecedent.image_header.color_type
