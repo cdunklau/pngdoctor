@@ -20,7 +20,7 @@ PNG_SIGNATURE = bytes([
 ])
 PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for reasonable PNGs
 PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
-PNG_CHUNK_MAX_DATA_READ = 4 * 2**10  # 4 KiB max chunk data processed
+
 
 
 class ChunkTokenStream(object):
@@ -211,6 +211,16 @@ class _SingleChunkState(object):
     :type next_read: int
 
     """
+
+    # Maximum number of bytes of chunk data processed at one time. This implies
+    # that the largest amount of data in a :class:`models.ChunkDataPartToken`
+    # instance is somewhat less than this value.   This must never be less than
+    # the length of the largest chunk with a defined  maximum length, including
+    # chunk header and checksum. In PNG 1.2, this is for  the PLTE chunk, which
+    # can be up to 780 bytes long:  4 (length field) + 4 (chunk code) + 768
+    # (data field) + 4 (checksum)
+    PNG_CHUNK_MAX_DATA_READ = 4 * 2**10  # 4 KiB
+
     def __init__(self, head):
         self.head = head
         self.data_remaining = self.head.length
@@ -234,4 +244,4 @@ class _SingleChunkState(object):
         self.crc32 = zlib.crc32(data, self.crc32)
 
     def _update_next_read(self):
-        self.next_read = min(PNG_CHUNK_MAX_DATA_READ, self.data_remaining)
+        self.next_read = min(self.PNG_CHUNK_MAX_DATA_READ, self.data_remaining)

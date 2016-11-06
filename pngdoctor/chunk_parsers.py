@@ -128,7 +128,7 @@ class _ImageHeaderChunkParser(_AbstractLimitedLengthChunkParser):
     _COLOR_TYPE_BIT_DEPTHS = MappingProxyType({
         fieldvalues.ColorType.grayscale: frozenset([1, 2, 4, 8, 16]),
         fieldvalues.ColorType.rgb: frozenset([8, 16]),
-        fieldvalues.ColorType.palette: frozenset([1, 2, 4, 8]),
+        fieldvalues.ColorType.indexed: frozenset([1, 2, 4, 8]),
         fieldvalues.ColorType.grayscale_alpha: frozenset([8, 16]),
         fieldvalues.ColorType.rgb_alpha: frozenset([8, 16]),
     })
@@ -252,6 +252,14 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
 class _ImageDataChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.IMAGE_DATA
     #TODO
+
+    def _validate_palette_exists_if_necessary(self):
+        if (
+                self.antecedent.image_header.color_type ==
+                fieldvalues.ColorType.indexed
+                and self.antecedent.palette is None
+            ):
+            raise PNGSyntaxError("Indexed color type but PLTE chunk not found")
 
 
 #@chunk_parsers.register

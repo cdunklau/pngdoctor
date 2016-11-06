@@ -7,7 +7,7 @@ import enum
 class ColorType(enum.Enum):
     grayscale = 0
     rgb = 2
-    palette = 3
+    indexed = 3
     grayscale_alpha = 4
     rgb_alpha = 6
 
