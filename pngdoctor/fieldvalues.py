@@ -20,6 +20,14 @@ class FilterMethod(enum.Enum):
     adaptive_five_basic = 0
 
 
+class AdaptiveFilterType(enum.Enum):
+    none = 0
+    sub = 1
+    up = 2  # pylint: disable=invalid-name
+    average = 3
+    paeth = 4
+
+
 class InterlaceMethod(enum.Enum):
     none = 0
     adam7 = 1

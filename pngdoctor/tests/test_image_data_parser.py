@@ -62,6 +62,23 @@ ADAM7_INTERLACE_PASSGRID = (
     (7, 7, 7, 7, 7, 7, 7, 7),
 )
 
+def create_expected_deinterlaced_pixel_order(width, height):
+    """
+    Return a list of tuples containing (pass number, xcoord, ycoord)
+    in the order they would be returned from the deinterlacing step.
+
+    This is constructed from the grid in the standard.
+    """
+    scanlines = itertools.islice(
+        itertools.cycle(ADAM7_INTERLACE_PASSGRID), height)
+    pass_x_y = []
+    for ycoord, scanline in enumerate(scanlines):
+        pass_numbers = itertools.islice(itertools.cycle(scanline), width)
+        for xcoord, pass_number in enumerate(pass_numbers):
+            pass_x_y.append((pass_number, xcoord, ycoord))
+    pass_x_y.sort()  # sort first by pass number, then x coord, then y coord
+    return pass_x_y
+
 
 class TestAdam7DeinterlaceLocator:
 
@@ -85,14 +102,7 @@ class TestAdam7DeinterlaceLocator:
         (19, 11),
     ])
     def test_from_constructed_grid(self, width, height):
-        scanlines = itertools.islice(
-            itertools.cycle(ADAM7_INTERLACE_PASSGRID), height)
-        pass_x_y = []
-        for ycoord, scanline in enumerate(scanlines):
-            pass_numbers = itertools.islice(itertools.cycle(scanline), width)
-            for xcoord, pass_number in enumerate(pass_numbers):
-                pass_x_y.append((pass_number, xcoord, ycoord))
-        pass_x_y.sort()
+        pass_x_y = create_expected_deinterlaced_pixel_order(width, height)
         actual = list(adam7locator(width, height))
         expected = [(x, y) for _, x, y in pass_x_y]
         assert actual == expected
