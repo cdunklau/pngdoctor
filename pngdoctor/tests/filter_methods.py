@@ -1,3 +1,6 @@
+"""
+Helper data for image_data_parser tests
+"""
 scanline_pixels_by_bit_depth = {
     1: {
         'greyscale': [

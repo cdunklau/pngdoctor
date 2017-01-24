@@ -235,21 +235,34 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
         return scanline_data
 
     def _unfilter_with_method_sub(self, scanline_data):
-        def raw(position):
+        # TODO This needs tests
+        def raw(data, position):
             if position < 0:
                 return 0
-            return scanline_data[position]
+            return data[position]
 
-        def sub(
+        def sub(data, position):
+            return (
+                raw(data, position)
+                - raw(data, position - self._bytes_per_pixel)
+            )
+
+        decoded_scanline_bytes = []
         for pos, byte in enumerate(scanline_data):
-            sub_value = 
-        return bytes((
+            decoded_scanline_bytes.append(
+                sub(scanline_data, pos)
+                + raw(decoded_scanline_bytes, pos - self._bytes_per_pixel)
+            )
+        return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_up(self, scanline_data):
         # TODO
+        pass
 
     def _unfilter_with_method_average(self, scanline_data):
         # TODO
+        pass
 
     def _unfilter_with_method_paeth(self, scanline_data):
         # TODO
+        pass
