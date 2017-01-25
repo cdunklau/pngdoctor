@@ -235,40 +235,40 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
 
     def _unfilter_with_method_sub(self, scanline_data):
         # TODO This needs tests
-        decoded_scanline_bytes = []
-        for pos, byte in enumerate(scanline_data):
+        decoded_scanline_bytes = bytearray()
+        for pos, filtered_byte in enumerate(scanline_data):
             offset = pos - self._bytes_per_pixel
             if offset < 0:
                 prior = 0
             else:
                 prior = decoded_scanline_bytes[offset]
-            decoded_scanline_bytes.append((byte + prior) % 256)
+            decoded_scanline_bytes.append((filtered_byte + prior) % 256)
         return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_up(self, scanline_data):
-        decoded_scanline_bytes = []
-        for pos, byte in enumerate(scanline_data):
+        decoded_scanline_bytes = bytearray()
+        for pos, filtered_byte in enumerate(scanline_data):
             prior = self._last_scanline_data[pos]
             decoded_scanline_bytes.append(
-                (byte + prior) % 256
+                (filtered_byte + prior) % 256
             )
         return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_average(self, scanline_data):
-        decoded_scanline_bytes = []
-        for pos, byte in enumerate(scanline_data):
+        decoded_scanline_bytes = bytearray()
+        for pos, filtered_byte in enumerate(scanline_data):
             prior = self._last_scanline_data[pos]
             offset = pos - self._bytes_per_pixel
             if offset < 0:
                 raw = 0
             else:
                 raw = decoded_scanline_bytes[pos]
-            decoded_scanline_bytes.append((byte + (raw + prior) // 2) % 256)
+            decoded_scanline_bytes.append((filtered_byte + (raw + prior) // 2) % 256)
         return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_paeth(self, scanline_data):
-        decoded_scanline_bytes = []
-        for pos, byte in enumerate(scanline_data):
+        decoded_scanline_bytes = bytearray()
+        for pos, filtered_byte in enumerate(scanline_data):
             prior = self._last_scanline_data[pos]
             offset = pos - self._bytes_per_pixel
             if offset < 0:
@@ -277,7 +277,7 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
                 raw = decoded_scanline_bytes[offset]
                 prior_off = self._last_scanline_data[offset]
             decoded_scanline_bytes.append(
-                (byte + paeth_predictor(raw, prior, prior_off)) % 256
+                (filtered_byte + paeth_predictor(raw, prior, prior_off)) % 256
             )
         return bytes(decoded_scanline_bytes)
 
