@@ -236,33 +236,63 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
 
     def _unfilter_with_method_sub(self, scanline_data):
         # TODO This needs tests
-        def raw(data, position):
-            if position < 0:
-                return 0
-            return data[position]
-
-        def sub(data, position):
-            return (
-                raw(data, position)
-                - raw(data, position - self._bytes_per_pixel)
-            )
-
         decoded_scanline_bytes = []
         for pos, byte in enumerate(scanline_data):
-            decoded_scanline_bytes.append(
-                sub(scanline_data, pos)
-                + raw(decoded_scanline_bytes, pos - self._bytes_per_pixel)
-            )
+            offset = pos - self._bytes_per_pixel
+            if offset < 0:
+                prior = 0
+            else:
+                prior = decoded_scanline_bytes[offset]
+            decoded_scanline_bytes.append((byte + prior) % 256)
         return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_up(self, scanline_data):
-        # TODO
-        pass
+        decoded_scanline_bytes = []
+        for pos, byte in enumerate(scanline_data):
+            prior = self._last_scanline_data[pos]
+            decoded_scanline_bytes.append(
+                (byte + prior) % 256
+            )
+        return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_average(self, scanline_data):
-        # TODO
-        pass
+        decoded_scanline_bytes = []
+        for pos, byte in enumerate(scanline_data):
+            prior = self._last_scanline_data[pos]
+            offset = pos - self._bytes_per_pixel
+            if offset < 0:
+                raw = 0
+            else:
+                raw = decoded_scanline_bytes[pos]
+            decoded_scanline_bytes.append((byte + (raw + prior) // 2) % 256)
+        return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_paeth(self, scanline_data):
-        # TODO
-        pass
+        decoded_scanline_bytes = []
+        for pos, byte in enumerate(scanline_data):
+            prior = self._last_scanline_data[pos]
+            offset = pos - self._bytes_per_pixel
+            if offset < 0:
+                raw = prior_off = 0
+            else:
+                raw = decoded_scanline_bytes[offset]
+                prior_off = self._last_scanline_data[offset]
+            decoded_scanline_bytes.append(
+                (byte + paeth_predictor(raw, prior, prior_off)) % 256
+            )
+        return bytes(decoded_scanline_bytes)
+
+
+def paeth_predictor(left, above, upperleft):
+    # a = left, b = above, c = upper left
+    predict = left + above - upperleft  # initial estimate
+    predict_left = abs(predict - left)  # distances to a, b, c
+    predict_above = abs(predict - above)
+    predict_upperleft = abs(predict - upperleft)
+    # Return nearest of a, b, c, breaking ties in order a, b, c
+    if predict_left <= predict_above and predict_left <= predict_upperleft:
+        return left
+    elif predict_above <= predict_upperleft:
+        return above
+    else:
+        return upperleft
