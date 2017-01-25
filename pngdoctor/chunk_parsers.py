@@ -81,11 +81,15 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
 
 
 class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
-    # TODO: Define this ABC
-    def __init__(self, data_token, parse_antecedent):
-        # TODO: fix this to not have the whole chunk data passed in. Probably
-        # need to have partial data passed into the parsing method.
-        self.data_token = data_token
+    """
+    Abstract parser class for chunks that have an undefined maximum
+    data length or larger that :data:`decoder.PNG_CHUNK_MAX_DATA_READ`.
+
+    Implementers will have their ``__init__`` method called with
+    one argument: an instance of :class:`_ParseAntecedent` containing
+    the parse results from the previous chunks.
+    """
+    def __init__(self, parse_antecedent):
         self.antecedent = parse_antecedent
 
     @abc.abstractproperty
@@ -94,6 +98,24 @@ class _AbstractIterativeChunkParser(metaclass=abc.ABCMeta):
         The chunk type, an instance of `ChunkType`
         """
 
+    @abc.abstractmethod
+    def parse_partial(self, data):
+        """
+        Process some data bytes from the chunk.
+
+        Raise :exception:`exceptions.PNGSyntaxError` if the parsing
+        failed.
+        """
+
+    @abc.abstractmethod
+    def verify_end(self):
+        """
+        Verify that the parse up until now represents a complete chunk.
+
+        Return the updated :class:`_ParseAntecedent` instance, or raise
+        :exception:`exceptions.PNGSyntaxError` if the end was
+        unexpected.
+        """
 
 
 class _ChunkParserRegistry:
