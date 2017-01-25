@@ -8,12 +8,18 @@ from pngdoctor import fieldvalues
 
 
 class ImageDataStreamParser:
-    def __init__(self, image_header):
+    def __init__(self, decompressor, locator, subimage_unfilterer_factory):
+        self._decompressor = decompressor
+        self._locator = locator
+        self._subimage_unfilterer_factory = subimage_unfilterer_factory
+
+    @classmegthod
+    def from_image_header(cls, image_header):
         if (
                 image_header.compression_method is
                 fieldvalues.CompressionMethod.deflate32k
             ):
-            self._decompressor = _Deflate32KDecompressor()
+            decompressor = _Deflate32KDecompressor()
         else:
             msg = "Compression method {0} is not supported".format(
                 image_header.compression_method)
@@ -23,14 +29,14 @@ class ImageDataStreamParser:
                 image_header.interlace_method is
                 fieldvalues.InterlaceMethod.none
             ):
-            self._locator = _no_deinterlace_pixel_coordinates(
+            locator = _no_deinterlace_pixel_coordinates(
                 image_header.width, image_header.height)
         elif (
                 image_header.interlace_method is
                 fieldvalues.InterlaceMethod.adam7
             ):
             # pylint: disable=redefined-variable-type
-            self._locator = _adam7_deinterlace_pixel_coordinates(
+            locator = _adam7_deinterlace_pixel_coordinates(
                 image_header.width, image_header.height)
         else:
             msg = "Interlace method {0} is not supported".format(
@@ -41,14 +47,17 @@ class ImageDataStreamParser:
                 image_header.filter_method is
                 fieldvalues.FilterMethod.adaptive_five_basic
             ):
-            self._subimage_unfilterer = _AdaptiveFiveBasicSubimageUnfilterer(
-                image_header.color_type,
-                image_header.bit_depth
-            )
+            def subimage_unfilterer_factory():
+                return _AdaptiveFiveBasicSubimageUnfilterer(
+                    image_header.color_type,
+                    image_header.bit_depth
+                )
         else:
             msg = "Filter method {0} is not supported".format(
                 image_header.filter_method)
             raise exceptions.UnsupportedField(msg)
+
+        return cls(decompressor, locator, subimage_unfilterer_factory)
 
 
 class _Deflate32KDecompressor:
@@ -195,7 +204,7 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
         self._last_scanline_data = None
         self._scanline_data_length = None
 
-    def get_pixel_data(self, scanline):
+    def unfilter_scanline(self, scanline):
         """
         Given the bytes of a complete scanline from the decompressed
         image data, return a list of sample tuples.

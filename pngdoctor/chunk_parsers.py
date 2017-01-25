@@ -288,7 +288,10 @@ class _PaletteChunkParser(_AbstractLimitedLengthChunkParser):
 #@chunk_parsers.register
 class _ImageDataChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.IMAGE_DATA
-    #TODO
+    def __init__(self, antecedent):
+        super().__init__(antecedent)
+        self._parser = ImageDataStreamParser.from_image_header(
+            self.antecedent.image_header)
 
     def _validate_palette_exists_if_necessary(self):
         if (
