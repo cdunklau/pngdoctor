@@ -103,7 +103,7 @@ class TestAdam7DeinterlaceLocator:
     ])
     def test_from_constructed_grid(self, width, height):
         pass_x_y = create_expected_deinterlaced_pixel_order(width, height)
-        actual = list(adam7locator(width, height))
+        actual = [pix for gen in adam7locator(width, height) for pix in gen]
         expected = [(x, y) for _, x, y in pass_x_y]
         assert actual == expected
 
@@ -132,4 +132,5 @@ class TestAdam7DeinterlaceLocator:
         (1, 10, [(0, y) for y in (0, 8, 4, 2, 6, 1, 3, 5, 7, 9)]),
     ])
     def test_expected_coordinates(self, width, height, expected):
-        assert list(adam7locator(width, height)) == expected
+        actual = [pix for gen in adam7locator(width, height) for pix in gen]
+        assert actual == expected

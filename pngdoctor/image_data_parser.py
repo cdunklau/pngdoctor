@@ -79,8 +79,9 @@ class _AbstractPixelLocator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __iter__(self):
         """
-        Yield tuples of pixel coordinates in the order they will
-        arrive in the stream.
+        For each subimage, yield out one pixel locator generator. Each
+        locator generator produces pixel coordinates (tuples of x, y)
+        in the order the pixels will arrive in the stream.
 
         Coordinates start with zero. The first element of each tuple
         is the x value (width offset from the leftmost pixel), the
@@ -91,8 +92,7 @@ class _AbstractPixelLocator(metaclass=abc.ABCMeta):
 
 def _no_deinterlace_pixel_coordinates(width, height):
     """Pixel locator for non-interlaced images"""
-    return itertools.product(range(width), range(height))
-
+    yield itertools.product(range(width), range(height))
 
 
 def _adam7_deinterlace_pixel_coordinates(width, height):
@@ -112,19 +112,19 @@ def _adam7_deinterlace_pixel_coordinates(width, height):
 
     assert width > 0 and height > 0
     # Pass 1
-    yield from itertools.product(range(0, width, 8), range(0, height, 8))
+    yield itertools.product(range(0, width, 8), range(0, height, 8))
     # Pass 2
-    yield from itertools.product(range(4, width, 8), range(0, height, 8))
+    yield itertools.product(range(4, width, 8), range(0, height, 8))
     # Pass 3
-    yield from itertools.product(range(0, width, 4), range(4, height, 8))
+    yield itertools.product(range(0, width, 4), range(4, height, 8))
     # Pass 4
-    yield from itertools.product(range(2, width, 4), range(0, height, 4))
+    yield itertools.product(range(2, width, 4), range(0, height, 4))
     # Pass 5
-    yield from itertools.product(range(0, width, 2), range(2, height, 4))
+    yield itertools.product(range(0, width, 2), range(2, height, 4))
     # Pass 6
-    yield from itertools.product(range(1, width, 2), range(0, height, 2))
+    yield itertools.product(range(1, width, 2), range(0, height, 2))
     # Pass 7
-    yield from itertools.product(range(0, width, 1), range(1, height, 2))
+    yield itertools.product(range(0, width, 1), range(1, height, 2))
 
 
 def _calculate_bits_per_pixel(color_type, bit_depth):
