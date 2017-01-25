@@ -134,3 +134,5 @@ class TestAdam7DeinterlaceLocator:
     def test_expected_coordinates(self, width, height, expected):
         actual = [pix for gen in adam7locator(width, height) for pix in gen]
         assert actual == expected
+
+    #TODO: Add tests for adam7 empty scanlines on smaller images

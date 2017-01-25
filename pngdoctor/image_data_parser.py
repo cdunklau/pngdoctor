@@ -186,7 +186,6 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
     For non-interlaced images, the entire image is a single subimage,
     otherwise a new instance must be used for each interlacing pass.
     """
-    #TODO figure out this API and implementation
     def __init__(self, color_type, bit_depth):
         self._color_type = color_type
         self._bit_depth = bit_depth
