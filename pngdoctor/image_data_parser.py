@@ -8,6 +8,9 @@ from pngdoctor import fieldvalues
 
 
 class ImageDataStreamParser:
+    """
+    Parser for IDAT data stream.
+    """
     def __init__(self, decompressor, locator, subimage_unfilterer_factory):
         self._decompressor = decompressor
         self._locator = locator
@@ -64,6 +67,7 @@ class _Deflate32KDecompressor:
     def __init__(self):
         self._decompressor = zlib.decompressobj(wbits=15)  # window size 32768
         self._last_unconsumed = b''
+        self.decompressed = 0
 
     def decompress(self, data, max_length):
         result = self._decompressor.decompress(
@@ -71,6 +75,7 @@ class _Deflate32KDecompressor:
             max_length
         )
         self._last_unconsumed = self._decompressor.unconsumed_tail
+        self.decompressed += len(result)
         return result
 
     def verify_end(self):

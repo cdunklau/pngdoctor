@@ -22,7 +22,8 @@ PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for reasonable PNGs
 PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
 
 
-
+# TODO: Pull the order validation out. The lowest level of the decoder should
+# only be concerned with framing.
 class ChunkTokenStream(object):
     """
     Produces chunk tokens for processing in the higher levels of the

@@ -149,6 +149,9 @@ class ChunkOrderParser(object):
 
         assert set(_ChunkOrderState) == self._transitions.keys()
 
+    # TODO: Return the state that this chunk triggers to allow calling
+    # code to do stuff based on that state. Need to make _ChunkOrderState
+    # public too.
     def validate(self, chunk_code):
         """
         Ensure that the chunk type code is valid for the current
