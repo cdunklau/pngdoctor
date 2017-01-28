@@ -16,7 +16,7 @@ class ImageDataStreamParser:
         self._locator = locator
         self._subimage_unfilterer_factory = subimage_unfilterer_factory
 
-    @classmegthod
+    @classmethod
     def from_image_header(cls, image_header):
         if (
                 image_header.compression_method is

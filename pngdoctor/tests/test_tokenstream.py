@@ -73,20 +73,20 @@ iend = RawChunkData(b'IEND', b'')
 
 
 def test_signature_correct():
-    from pngdoctor.decoder import PNG_SIGNATURE
+    from pngdoctor.tokenstream import PNG_SIGNATURE
 
     assert PNG_SIGNATURE == b'\x89PNG\r\n\x1A\n'
 
 
 def chunk_token_stream_with_bytes(stream_bytes):
-    from pngdoctor.decoder import ChunkTokenStream
+    from pngdoctor.tokenstream import ChunkTokenStream
 
     return ChunkTokenStream(io.BytesIO(stream_bytes))
 
 
 def chunk_tokens_from_fakes(chunk_fakes):
     # This does not allow for multiple data tokens or bad CRC
-    from pngdoctor.decoder import PNG_SIGNATURE
+    from pngdoctor.tokenstream import PNG_SIGNATURE
     from pngdoctor.models import (
         ChunkHeadToken, ChunkDataPartToken, ChunkEndToken
     )
@@ -104,7 +104,7 @@ def chunk_tokens_from_fakes(chunk_fakes):
 
 class TestChunkTokenStream:
     def test_iter(self):
-        from pngdoctor.decoder import PNG_SIGNATURE
+        from pngdoctor.tokenstream import PNG_SIGNATURE
 
         contents = b''.join([
             PNG_SIGNATURE,
@@ -125,7 +125,7 @@ class TestChunkTokenStream:
         assert actual_tokens == expected_tokens
 
     def test_iter_if_ihdr_not_first(self):
-        from pngdoctor.decoder import PNG_SIGNATURE
+        from pngdoctor.tokenstream import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError
 
         contents = b''.join([PNG_SIGNATURE, iend.bytes_with_crc32])
@@ -135,7 +135,7 @@ class TestChunkTokenStream:
         assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
 
     def test_iter_fails_on_eof_after_iend(self):
-        from pngdoctor.decoder import PNG_SIGNATURE
+        from pngdoctor.tokenstream import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError
 
         contents = b''.join([
@@ -182,7 +182,7 @@ class TestChunkTokenStream:
         ) is not None
 
     def test__validate_signature(self):
-        from pngdoctor.decoder import PNG_SIGNATURE
+        from pngdoctor.tokenstream import PNG_SIGNATURE
 
         chunk_token_stream = chunk_token_stream_with_bytes(PNG_SIGNATURE)
         chunk_token_stream._validate_signature()
