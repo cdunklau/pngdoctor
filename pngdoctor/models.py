@@ -22,7 +22,7 @@ def _valid_chunk_type_code(instance, attribute, value):
 
 @attr.attributes
 class ChunkType:
-    code = attr.attr(validator=_valid_chunk_type_code)
+    code = attr.attr(validator=_valid_chunk_type_code)  # type: bytes
 
     @property
     def ancillary(self):
@@ -51,15 +51,12 @@ class ChunkHeadToken:
     The start of a PNG chunk.
 
     :ivar length: The number of bytes comprising the chunk's data
-    :type length: int
     :ivar code: The PNG chunk type code
-    :type code: bytes
     :ivar position: Where the chunk started in the stream
-    :type position: int
     """
-    length = attr.attr()
-    code = attr.attr()
-    position = attr.attr()
+    length = attr.attr()  # type: int
+    code = attr.attr()  # type: bytes
+    position = attr.attr()  # type: int
 
 
 @attr.attributes
@@ -72,8 +69,8 @@ class ChunkDataPartToken:
     :ivar data: The bytes from this portion of the chunk
     :type data: bytes
     """
-    head = attr.attr()
-    data = attr.attr()
+    head = attr.attr()  # type: ChunkHeadToken
+    data = attr.attr()  # type: bytes
 
     def __repr__(self):
         return '{name}(head={head!r}, data_length={length})'.format(
@@ -93,8 +90,8 @@ class ChunkEndToken:
     :ivar crc32ok: If the CRC32 checksum validated properly
     :type crc32ok: bool
     """
-    head = attr.attr()
-    crc32ok = attr.attr()
+    head = attr.attr()  # type: ChunkHeadToken
+    crc32ok = attr.attr()  # type: bool
 
 
 # Typing helper
