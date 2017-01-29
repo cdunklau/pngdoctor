@@ -8,7 +8,7 @@ def chunk_order_parser():
     return ChunkOrderParser()
 
 
-class TestChunkOrderParser(object):
+class TestChunkOrderParser:
     @pytest.mark.parametrize('chunk_codes', [
         [b'IHDR', b'IDAT', b'IEND'],
         [b'IHDR', b'PLTE', b'IDAT', b'IEND'],

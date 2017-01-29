@@ -17,9 +17,13 @@ PNG_SIGNATURE = bytes([
     0x1A,
     # Unix line ending (LF)
     0x0A
-])
-PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for reasonable PNGs
-PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
+])  # type: bytes
+
+# 20 MiB is large enough for reasonable PNGs
+PNG_MAX_FILE_SIZE = 20 * 2**20  # type: int
+
+# Max length of chunk data (not counting chunk code, length, and CRC)
+PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # type: int
 
 
 class ChunkTokenStream(typing.Iterable[models.ChunkToken]):
@@ -190,7 +194,7 @@ class ChunkTokenStream(typing.Iterable[models.ChunkToken]):
         return data
 
 
-class _SingleChunkState(object):
+class _SingleChunkState:
     """
     Represents the state of processing of a single chunk into tokens.
 

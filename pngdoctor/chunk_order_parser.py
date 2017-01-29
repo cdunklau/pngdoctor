@@ -72,7 +72,7 @@ class _ChunkOrderState(enum.Enum):
     after_trailer = 5
 
 
-class ChunkOrderParser(object):
+class ChunkOrderParser:
     """
     Ensure that the sequence of chunk type codes for a PNG stream is
     valid according to the PNG 1.2 specification.
@@ -186,7 +186,7 @@ class ChunkOrderParser(object):
             raise PNGSyntaxError('Missing IEND')
 
 
-class _ChunkCountValidator(object):
+class _ChunkCountValidator:
     def __init__(self):
         self._nseen = collections.Counter()
         self._multiple_allowed = _code_frozenset({
