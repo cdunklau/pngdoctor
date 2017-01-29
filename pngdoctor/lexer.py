@@ -1,7 +1,7 @@
 import struct
 import zlib
 
-from pngdoctor import exceptions as exc
+from pngdoctor import exceptions
 from pngdoctor import models
 from pngdoctor.chunk_order_parser import ChunkOrderParser
 
@@ -63,7 +63,7 @@ class ChunkTokenStream(object):
             # First read a single byte to detect EOF
             try:
                 initial = self._read(1)
-            except exc.UnexpectedEOF:
+            except exceptions.UnexpectedEOF:
                 # If EOF happens here, the stream ended properly at the end
                 # of the last chunk so we break...
                 break
@@ -88,7 +88,7 @@ class ChunkTokenStream(object):
     def _validate_signature(self):
         header = self._read(len(PNG_SIGNATURE))
         if header != PNG_SIGNATURE:
-            raise exc.SignatureMismatch(
+            raise exceptions.SignatureMismatch(
                 "Expected {expected!r}, got {actual!r}".format(
                     expected=PNG_SIGNATURE,
                     actual=header
@@ -107,7 +107,7 @@ class ChunkTokenStream(object):
         :rtype: tuple of (int, bytes, int)
         """
         if self._chunk_state is not None:
-            raise exc.StreamStateError(
+            raise exceptions.StreamStateError(
                 "Must finish last chunk before starting another"
             )
         # One byte has already been read by this chunk, so don't add
@@ -119,13 +119,13 @@ class ChunkTokenStream(object):
                 "Chunk claims to be {actual} bytes long, must be "
                 "no longer than {max}."
             )
-            raise exc.PNGSyntaxError(fmt.format(
+            raise exceptions.PNGSyntaxError(fmt.format(
                 actual=length,
                 max=PNG_MAX_CHUNK_LENGTH
             ))
         type_code = self._read(4)
         if not models.PNG_CHUNK_TYPE_CODE_ALLOWED_BYTES.issuperset(type_code):
-            raise exc.PNGSyntaxError(
+            raise exceptions.PNGSyntaxError(
                 "Invalid type code for chunk at byte {position}".format(
                     position=start_position,
                 )
@@ -143,7 +143,7 @@ class ChunkTokenStream(object):
         :rtype: :class:`models.ChunkDataPartToken`
         """
         if self._chunk_state is None or self._chunk_state.next_read == 0:
-            raise exc.StreamStateError(
+            raise exceptions.StreamStateError(
                 "Incorrect chunk state for reading data"
             )
         data = self._read(self._chunk_state.next_read)
@@ -159,7 +159,7 @@ class ChunkTokenStream(object):
         :rtype: :class:`models.ChunkEndToken`
         """
         if self._chunk_state is None or self._chunk_state.next_read != 0:
-            raise exc.StreamStateError(
+            raise exceptions.StreamStateError(
                 "Incorrect chunk state for ending data"
             )
 
@@ -178,7 +178,7 @@ class ChunkTokenStream(object):
         :exc:`exceptions.UnexpectedEOF`.
         """
         if length + self.total_bytes_read > PNG_MAX_FILE_SIZE:
-            raise exc.PNGTooLarge(
+            raise exceptions.PNGTooLarge(
                 "Attempted to read past file size limit: {size} bytes".format(
                     size=PNG_MAX_FILE_SIZE,
                 )
@@ -189,7 +189,7 @@ class ChunkTokenStream(object):
         assert length >= actual, "Read more bytes than requested"
         if length > actual:
             fmt = "Expected to read {length}, got {actual}, total read {total}"
-            raise exc.UnexpectedEOF(fmt.format(
+            raise exceptions.UnexpectedEOF(fmt.format(
                 length=length,
                 actual=actual,
                 total=self.total_bytes_read
