@@ -8,6 +8,7 @@ from pngdoctor import fieldvalues
 from pngdoctor import models
 from pngdoctor import chunktypes
 from pngdoctor.exceptions import PNGSyntaxError
+from pngdoctor.image_data_parser import ImageDataStreamParser
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,9 @@ class _AbstractLimitedLengthChunkParser(metaclass=abc.ABCMeta):
     previous chunks.
 
     """
+    data_token = None
+    antecedent = None
+
     def __init__(self, data_token, parse_antecedent):
         self.data_token = data_token
         self.antecedent = parse_antecedent
@@ -293,6 +297,12 @@ class _ImageDataChunkParser(_AbstractIterativeChunkParser):
         self._parser = ImageDataStreamParser.from_image_header(
             self.antecedent.image_header)
 
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
     def _validate_palette_exists_if_necessary(self):
         if (
                 self.antecedent.image_header.color_type ==
@@ -358,6 +368,12 @@ class _StandardRGBColorSpaceChunkParser(_AbstractLimitedLengthChunkParser):
 class _EmbeddedICCProfileChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.EMBEDDED_ICC_PROFILE
     #TODO
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
 
 
 # 4.2.3. Textual information
@@ -397,17 +413,36 @@ class _TextualDataParser(_AbstractIterativeChunkParser):
         keyword = keyword.decode('latin-1')
         text = text.decode('latin-1')
 
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
+
 
 #@chunk_parsers.register
 class _CompressedTextualDataChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.COMPRESSED_TEXTUAL_DATA
     #TODO
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
 
 
 #@chunk_parsers.register
 class _InternationalTextualDataChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.INTERNATIONAL_TEXTUAL_DATA
     #TODO
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
 
 
 # 4.3.4. Miscellaneous information
@@ -443,6 +478,12 @@ class _SignificantBitsChunkParser(_AbstractLimitedLengthChunkParser):
 class _SuggestedPaletteChunkParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.SUGGESTED_PALETTE
     #TODO
+    def parse_partial(self, data):
+        raise NotImplementedError('not done yet')
+
+    def verify_end(self):
+        raise NotImplementedError('not done yet')
+
 
 
 #@chunk_parsers.register
