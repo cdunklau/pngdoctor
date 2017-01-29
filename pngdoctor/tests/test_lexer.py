@@ -124,31 +124,20 @@ class TestChunkTokenStream:
 
         assert actual_tokens == expected_tokens
 
-    def test_iter_if_ihdr_not_first(self):
+    def test_iter_fails_on_bad_checksum(self):
         from pngdoctor.lexer import PNG_SIGNATURE
-        from pngdoctor.exceptions import PNGSyntaxError
+        from pngdoctor.exceptions import BadCRC
 
-        contents = b''.join([PNG_SIGNATURE, iend.bytes_with_crc32])
-        chunk_token_stream = chunk_token_stream_with_bytes(contents)
-        with pytest.raises(PNGSyntaxError) as excinfo:
-            next(iter(chunk_token_stream))
-        assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
-
-    def test_iter_fails_on_eof_after_iend(self):
-        from pngdoctor.lexer import PNG_SIGNATURE
-        from pngdoctor.exceptions import PNGSyntaxError
-
+        ihdr_bytes = bytearray(ihdr_one_by_one_rgb24.bytes_with_crc32)
+        # zero out the last byte to screw up the CRC
+        ihdr_bytes[-1] = 0
         contents = b''.join([
             PNG_SIGNATURE,
-            ihdr_one_by_one_rgb24.bytes_with_crc32,
-            iend.bytes_with_crc32,
-            b'extra'
+            ihdr_bytes,
         ])
         chunk_token_stream = chunk_token_stream_with_bytes(contents)
-        with pytest.raises(PNGSyntaxError) as excinfo:
-            for _ in chunk_token_stream:
-                pass
-        assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
+        with pytest.raises(BadCRC):
+            list(chunk_token_stream)
 
     def test__read(self):
         from pngdoctor.exceptions import UnexpectedEOF
@@ -195,7 +184,7 @@ class TestChunkTokenStream:
         with pytest.raises(SignatureMismatch):
             chunk_token_stream._validate_signature()
 
-    # TODO: Add test for CRC check pass and fail
+    # TODO: Add test for invalid chunk type code
 
     @pytest.mark.skip
     def test__get_chunk_head(self):
@@ -211,3 +200,29 @@ class TestChunkTokenStream:
     def test__get_chunk_end(self):
         # TODO
         pass
+
+    def test_iter_if_ihdr_not_first(self):
+        from pngdoctor.lexer import PNG_SIGNATURE
+        from pngdoctor.exceptions import PNGSyntaxError
+
+        contents = b''.join([PNG_SIGNATURE, iend.bytes_with_crc32])
+        chunk_token_stream = chunk_token_stream_with_bytes(contents)
+        with pytest.raises(PNGSyntaxError) as excinfo:
+            next(iter(chunk_token_stream))
+        assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
+
+    def test_iter_fails_on_eof_after_iend(self):
+        from pngdoctor.lexer import PNG_SIGNATURE
+        from pngdoctor.exceptions import PNGSyntaxError
+
+        contents = b''.join([
+            PNG_SIGNATURE,
+            ihdr_one_by_one_rgb24.bytes_with_crc32,
+            iend.bytes_with_crc32,
+            b'extra'
+        ])
+        chunk_token_stream = chunk_token_stream_with_bytes(contents)
+        with pytest.raises(PNGSyntaxError) as excinfo:
+            for _ in chunk_token_stream:
+                pass
+        assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
