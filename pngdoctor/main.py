@@ -1,7 +1,7 @@
 import sys
 import logging
 
-from pngdoctor.decoder import ChunkTokenStream
+from pngdoctor.lexer import ChunkTokenStream
 
 logger = logging.getLogger(__name__)
 
