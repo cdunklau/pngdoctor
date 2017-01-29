@@ -195,6 +195,8 @@ class TestChunkTokenStream:
         with pytest.raises(SignatureMismatch):
             chunk_token_stream._validate_signature()
 
+    # TODO: Add test for CRC check pass and fail
+
     @pytest.mark.skip
     def test__get_chunk_head(self):
         # TODO

@@ -74,6 +74,12 @@ class ChunkTokenStream(object):
             while self._chunk_state.next_read > 0:
                 yield self._get_chunk_data()
             end = self._get_chunk_end()
+            if not end.crc32ok:
+                fmt = 'CRC32 check failed for {code} after {nbytes} bytes read'
+                raise exceptions.BadCRC(fmt.format(
+                    code=head.code,
+                    nbytes=self.total_bytes_read,
+                ))
             yield end
 
         # ...and ensure the last chunk was the IEND.
