@@ -10,3 +10,4 @@ well-written, and not exceptionally complex.
 
 
 .. |travis| image:: https://img.shields.io/travis/cdunklau/pngdoctor.svg
+.. _travis: https://travis-ci.org/cdunklau/pngdoctor/
