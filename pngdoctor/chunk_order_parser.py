@@ -152,10 +152,12 @@ class ChunkOrderParser(object):
     # TODO: Return the state that this chunk triggers to allow calling
     # code to do stuff based on that state. Need to make _ChunkOrderState
     # public too.
-    def validate(self, chunk_code):
+    def validate(self, chunk_code: bytes):
         """
         Ensure that the chunk type code is valid for the current
         parser state, and change the state as necessary.
+
+        :param chunk_code: The PNG chunk code (four bytes)
         """
         msg = 'In state {state}, validating code {code}'.format(
             state=self._state, code=chunk_code

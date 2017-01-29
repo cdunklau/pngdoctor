@@ -184,7 +184,8 @@ class TestChunkTokenStream:
         with pytest.raises(SignatureMismatch):
             chunk_token_stream._validate_signature()
 
-    # TODO: Add test for invalid chunk type code
+    # TODO: Add test for invalid chunk type code (although this validation
+    # occurs in the chunk tokens, here is the place to test it).
 
     @pytest.mark.skip
     def test__get_chunk_head(self):
@@ -201,6 +202,7 @@ class TestChunkTokenStream:
         # TODO
         pass
 
+    @pytest.mark.skip('Need to move this to actual parser tests')
     def test_iter_if_ihdr_not_first(self):
         from pngdoctor.lexer import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError
@@ -211,6 +213,7 @@ class TestChunkTokenStream:
             next(iter(chunk_token_stream))
         assert "Chunk b'IEND' is not allowed here" in str(excinfo.value)
 
+    @pytest.mark.skip('Need to move this to actual parser tests')
     def test_iter_fails_on_eof_after_iend(self):
         from pngdoctor.lexer import PNG_SIGNATURE
         from pngdoctor.exceptions import PNGSyntaxError

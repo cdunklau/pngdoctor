@@ -1,9 +1,9 @@
 import struct
 import zlib
+import typing
 
 from pngdoctor import exceptions
 from pngdoctor import models
-from pngdoctor.chunk_order_parser import ChunkOrderParser
 
 
 PNG_SIGNATURE = bytes([
@@ -22,21 +22,18 @@ PNG_MAX_FILE_SIZE = 20 * 2**20  # 20 MiB is large enough for reasonable PNGs
 PNG_MAX_CHUNK_LENGTH = 2**31 - 1  # Max length of chunk data
 
 
-# TODO: Pull the order validation out. The lowest level of the decoder should
-# only be concerned with framing.
 class ChunkTokenStream(object):
     """
     Produces chunk tokens for processing in the higher levels of the
     decoder.
 
     Responsible for parsing and validating low-level portions of a
-    PNG stream, including:
+    PNG stream:
 
     -   Signature (PNG magic number)
     -   Valid chunk length declaration
     -   Valid chunk code
     -   CRC32 checksum
-    -   Ordering of chunks
 
     :ivar total_bytes_read:
         Total number of bytes consumed from the underlying file object
@@ -46,9 +43,8 @@ class ChunkTokenStream(object):
         self._stream = stream
         self.total_bytes_read = 0
         self._chunk_state = None
-        self.order_validator = ChunkOrderParser()
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[models.ChunkToken]:
         """
         Process the stream and produce chunk tokens.
 
@@ -65,11 +61,10 @@ class ChunkTokenStream(object):
                 initial = self._read(1)
             except exceptions.UnexpectedEOF:
                 # If EOF happens here, the stream ended properly at the end
-                # of the last chunk so we break...
-                break
+                # of the last chunk. We're done, exit.
+                return
 
             head = self._get_chunk_head(initial)
-            self.order_validator.validate(head.code)
             yield head
             while self._chunk_state.next_read > 0:
                 yield self._get_chunk_data()
@@ -81,9 +76,6 @@ class ChunkTokenStream(object):
                     nbytes=self.total_bytes_read,
                 ))
             yield end
-
-        # ...and ensure the last chunk was the IEND.
-        self.order_validator.validate_end()
 
     def _validate_signature(self):
         header = self._read(len(PNG_SIGNATURE))

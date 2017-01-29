@@ -1,4 +1,5 @@
 import itertools
+import typing
 
 import attr
 
@@ -94,6 +95,10 @@ class ChunkEndToken:
     """
     head = attr.attr()
     crc32ok = attr.attr()
+
+
+# Typing helper
+ChunkToken = typing.Union[ChunkHeadToken, ChunkDataPartToken, ChunkEndToken]
 
 
 @attr.attributes
