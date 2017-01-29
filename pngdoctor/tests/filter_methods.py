@@ -126,20 +126,26 @@ scanline_pixels_by_bit_depth = {
             (28656, 62358), (21675, 15826), (36056, 59124), (41614, 60594)
         ],
         'rgb': [
-            (10087, 22146, 26182), (46879, 59110, 22327), (43266, 53477, 54967),
-            (24416, 22525, 5734), (57722, 22091, 39111), (7941, 45665, 62620),
-            (26855, 63820, 48212), (13995, 46919, 21171), (37140, 42920, 61569),
-            (41275, 47995, 59577), (13202, 732, 56574), (5529, 51191, 61305),
-            (17419, 74, 42103), (60125, 33740, 6588), (44220, 39981, 19874),
-            (13582, 46336, 55477), (65195, 17521, 5420), (63539, 56762, 59405),
-            (23927, 53345, 45305), (27304, 32147, 51352), (32161, 25987, 29192),
-            (16356, 28808, 63386), (24894, 42021, 10673), (42541, 54919, 18287),
-            (8950, 25540, 13637), (29375, 36041, 6951), (59713, 2534, 18041),
-            (61790, 47858, 7224), (1387, 30197, 11575), (29160, 21033, 43167),
-            (60021, 13706, 13548), (4067, 34241, 30954), (18410, 9412, 51922),
-            (14702, 14449, 47809), (12349, 7695, 34015), (46655, 49560, 16307),
-            (7292, 51771, 8616), (12271, 44292, 56977), (628, 5446, 22302),
-            (41446, 56468, 12871),
+            (10087, 22146, 26182), (46879, 59110, 22327),
+            (43266, 53477, 54967), (24416, 22525, 5734),
+            (57722, 22091, 39111), (7941, 45665, 62620),
+            (26855, 63820, 48212), (13995, 46919, 21171),
+            (37140, 42920, 61569), (41275, 47995, 59577),
+            (13202, 732, 56574), (5529, 51191, 61305),
+            (17419, 74, 42103), (60125, 33740, 6588),
+            (44220, 39981, 19874), (13582, 46336, 55477),
+            (65195, 17521, 5420), (63539, 56762, 59405),
+            (23927, 53345, 45305), (27304, 32147, 51352),
+            (32161, 25987, 29192), (16356, 28808, 63386),
+            (24894, 42021, 10673), (42541, 54919, 18287),
+            (8950, 25540, 13637), (29375, 36041, 6951),
+            (59713, 2534, 18041), (61790, 47858, 7224),
+            (1387, 30197, 11575), (29160, 21033, 43167),
+            (60021, 13706, 13548), (4067, 34241, 30954),
+            (18410, 9412, 51922), (14702, 14449, 47809),
+            (12349, 7695, 34015), (46655, 49560, 16307),
+            (7292, 51771, 8616), (12271, 44292, 56977),
+            (628, 5446, 22302), (41446, 56468, 12871),
         ],
         'rgb_alpha': [
             (31311, 5798, 36413, 63723), (22425, 44896, 51480, 17130),
@@ -171,53 +177,53 @@ scanline_pixels_by_bit_depth = {
 
 def scanline_filter_sub(bytes_per_pixel, scanline):
     bpp = bytes_per_pixel
-    def raw(x):
-        if x < 0:
+    def raw(pos):
+        if pos < 0:
             return 0
-        return scanline[x]
-    def sub(x):
-        return (raw(x) - raw(x - bpp)) % 256
-    return bytes(sub(x) for x in range(len(scanline)))
+        return scanline[pos]
+    def sub(pos):
+        return (raw(pos) - raw(pos - bpp)) % 256
+    return bytes(sub(pos) for pos in range(len(scanline)))
 
 
 def scanline_filter_up(scanline, prior_unfiltered_scanline):
     assert len(scanline) == len(prior_unfiltered_scanline)
-    def prior(x):
-        return prior_unfiltered_scanline[x]
-    def raw(x):
-        return scanline[x]
-    def up(x):
-        return (raw(x) - prior(x)) % 256
-    return bytes(up(x) for x in range(len(scanline)))
+    def prior(pos):
+        return prior_unfiltered_scanline[pos]
+    def raw(pos):
+        return scanline[pos]
+    def upper(pos):
+        return (raw(pos) - prior(pos)) % 256
+    return bytes(upper(pos) for pos in range(len(scanline)))
 
 
 def scanline_filter_average(bytes_per_pixel, scanline,
                             prior_unfiltered_scanline):
     assert len(scanline) == len(prior_unfiltered_scanline)
     bpp = bytes_per_pixel
-    def raw(x):
-        if x < 0:
+    def raw(pos):
+        if pos < 0:
             return 0
-        return scanline[x]
-    def prior(x):
-        return prior_unfiltered_scanline[x]
-    def average(x):
-        return (raw(x) - ((raw(x - bpp) - prior(x)) // 2)) % 256
-    return bytes(average(x) for x in range(len(scanline)))
+        return scanline[pos]
+    def prior(pos):
+        return prior_unfiltered_scanline[pos]
+    def average(pos):
+        return (raw(pos) - ((raw(pos - bpp) - prior(pos)) // 2)) % 256
+    return bytes(average(pos) for pos in range(len(scanline)))
 
 
 def scanline_filter_paeth(bytes_per_pixel, scanline,
                           prior_unfiltered_scanline):
     assert len(scanline) == len(prior_unfiltered_scanline)
     bpp = bytes_per_pixel
-    def raw(x):
-        if x < 0:
+    def raw(pos):
+        if pos < 0:
             return 0
-        return scanline[x]
-    def prior(x):
-        if x < 0:
+        return scanline[pos]
+    def prior(pos):
+        if pos < 0:
             return 0
-        return prior_unfiltered_scanline[x]
+        return prior_unfiltered_scanline[pos]
     def predictor(left, above, upperleft):
         pred = left + above - upperleft
         pred_left = abs(pred - left)
@@ -229,8 +235,8 @@ def scanline_filter_paeth(bytes_per_pixel, scanline,
             return above
         else:
             return upperleft
-    def paeth(x):
+    def paeth(pos):
         return (
-            raw(x) - predictor(raw(x - bpp), prior(x), prior(x - bpp))
+            raw(pos) - predictor(raw(pos - bpp), prior(pos), prior(pos - bpp))
         ) % 256
-    return bytes(paeth(x) for x in range(len(scanline)))
+    return bytes(paeth(pos) for pos in range(len(scanline)))

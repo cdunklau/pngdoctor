@@ -388,10 +388,15 @@ TEXTUAL_KEYWORD_ALLOWED_BYTES = frozenset(
 class _TextualDataParser(_AbstractIterativeChunkParser):
     chunk_type = chunktypes.TEXTUAL_DATA
 
-    def parse(self):
+    def parse_partial(self, data):
+        # This method is broken, but the current code demonstrates the basic
+        # validation needed for the keyword.
+        # TODO: Deal with the data in parts, probably with a simple state
+        # machine. The first chunk of data we get should have the keyword,
+        # since it can only be 79 bytes long.
         # TODO: add validation for rules in Textual Information, section 4.2.3
         # of the PNG 1.2 spec.
-        components = self.data_token.split(b'\x00')
+        components = data.split(b'\x00')
         if len(components) > 2:
             raise PNGSyntaxError(
                 "Too many null bytes found in tEXt data."
@@ -412,9 +417,6 @@ class _TextualDataParser(_AbstractIterativeChunkParser):
             )
         keyword = keyword.decode('latin-1')
         text = text.decode('latin-1')
-
-    def parse_partial(self, data):
-        raise NotImplementedError('not done yet')
 
     def verify_end(self):
         raise NotImplementedError('not done yet')

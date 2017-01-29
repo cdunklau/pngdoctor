@@ -238,13 +238,16 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
         return unfiltered_scanline
 
     def _get_valid_filter_method(self, value):
-        # pylint: disable=no-member
-        if value not in fieldvalues.AdaptiveFilterType.__members__.values():
+        # pylint: disable=no-member,no-self-use
+        valids = fieldvalues.AdaptiveFilterType.__members__.values()
+        # pylint: enable=no-member
+        if value not in valids:
             fmt = "Invalid filter type {value!r} in image data"
             raise exceptions.PNGSyntaxError(fmt.format(value=value))
         return fieldvalues.AdaptiveFilterType(value)
 
     def _unfilter_with_method_none(self, scanline_data):
+        # pylint: disable=no-self-use
         return scanline_data
 
     def _unfilter_with_method_sub(self, scanline_data):
@@ -277,7 +280,9 @@ class _AdaptiveFiveBasicSubimageUnfilterer:
                 raw = 0
             else:
                 raw = decoded_scanline_bytes[pos]
-            decoded_scanline_bytes.append((filtered_byte + (raw + prior) // 2) % 256)
+            decoded_scanline_bytes.append(
+                (filtered_byte + (raw + prior) // 2) % 256
+            )
         return bytes(decoded_scanline_bytes)
 
     def _unfilter_with_method_paeth(self, scanline_data):
