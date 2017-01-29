@@ -19,8 +19,10 @@ requires = [
     'attrs',
 ]
 
-# TODO
-classifiers = [] 
+# TODO: more classifiers
+classifiers = [
+    'Programming Language :: Python :: 3.6',
+] 
 
 setup(
     name='pngdoctor',
